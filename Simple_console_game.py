@@ -13,23 +13,35 @@ import sys
 import time
 import os
 import win32gui
+import pynput
 
 hwnd = win32gui.GetForegroundWindow()
 win32gui.MoveWindow(hwnd, 0, 0, 1000, 400, True)
 os.system("mode con cols=120 lines=30")
 
+def findnth(string, substring, n = 0):
+    parts= string.split(substring, n+1)
+    if len(parts)<=n+1:
+        return -1
+    return len(string)-len(parts[-1])-len(substring)
+
+
 class Console:
+
+    def console_location_reset():
+        hwnd = win32gui.GetForegroundWindow()
+        win32gui.MoveWindow(hwnd, 0, 0, 1000, 400, True)
+        os.system("mode con cols=120 lines=30")
 
     def clear():
         os.system('cls' if os.name=='nt' else 'clear')
 
-    def combat_screen(next_action, enemy, extra_text = None):
+    def combat_screen(enemy, next_action = "", extra_text = None):
         Console.clear()
-        if not extra_text == None:
+        if not extra_text is None:
            lines_in = extra_text.split("\n")
         else:
              lines_in = []
-        print("horse")
 
         for i in range(len(lines_in),31):
             lines_in.append("")
@@ -62,7 +74,6 @@ class Console:
         line_26 = lines_in[26]
         line_27 = lines_in[27]
         line_28 = lines_in[28]
-        line_29 = lines_in[29]
 
         standing_line = chr(124)
         block = chr(9608)
@@ -116,29 +127,90 @@ class Console:
         top_line * (max(len(GameMaster.action_log[len(GameMaster.action_log) - 1]), len(GameMaster.action_log[len(GameMaster.action_log) - 2])))
 
 
-        lines = {0: line_1, 1: line_2, 2: line_3, 3: line_4, 4: line_5,\
-        5: line_6 + ' ' * (80 - len(line_6)) + enemy_top_healthbar,\
-        6: line_7 + ' ' * (80 - len(line_7)) + enemy_mid_healthbar,\
-        7: line_8 + ' ' * (80 - len(line_8)) + any_bot_healthbar,\
-        8: line_9, 9: line_10, 10: line_11,\
-        11: line_12, 12: line_13, 13: line_14, 14: line_15, 15: line_16,\
-        16: line_17, 17: line_18, 18: line_19, 19: line_20, 20: line_21,\
+        lines = {0: line_1, 1: line_2, 2: line_3, 3: line_4, 4: line_5,
+        5: line_6 + ' ' * (80 - len(line_6)) + enemy_top_healthbar,
+        6: line_7 + ' ' * (80 - len(line_7)) + enemy_mid_healthbar,
+        7: line_8 + ' ' * (80 - len(line_8)) + any_bot_healthbar,
+        8: line_9, 9: line_10, 10: line_11,
+        11: line_12, 12: line_13, 13: line_14, 14: line_15, 15: line_16,
+        16: line_17, 17: line_18, 18: line_19, 19: line_20, 20: line_21,
         21: line_22 + ' ' * (30 - len(line_22)) + player_top_healthbar\
-        + ' ' * (22 - len(player_top_healthbar)) + action_log_top,\
+        + ' ' * (22 - len(player_top_healthbar)) + action_log_top,
         22: line_23 + ' ' * (30 - len(line_23)) + player_mid_healthbar\
-        + ' ' * (22 - len(player_mid_healthbar)) + action_log_mid_1,\
+        + ' ' * (22 - len(player_mid_healthbar)) + action_log_mid_1,
         23: line_24 + ' ' * (30 - len(line_24)) + any_bot_healthbar\
-        + ' ' * (22 - len(any_bot_healthbar)) + action_log_mid_2,\
-        24: line_25 + ' ' * (52 - len(line_25)) + action_log_mid_3,\
-        25: line_26 + ' ' * (52 - len(line_26)) + action_log_mid_4,\
-        26: line_27 + ' ' * (52 - len(line_27)) + action_log_bot,\
+        + ' ' * (22 - len(any_bot_healthbar)) + action_log_mid_2,
+        24: line_25 + ' ' * (52 - len(line_25)) + action_log_mid_3,
+        25: line_26 + ' ' * (52 - len(line_26)) + action_log_mid_4,
+        26: line_27 + ' ' * (52 - len(line_27)) + action_log_bot,
         27: line_28, 28: next_action,}
 
         for i in range(0, 29):
             print(eval("lines[i]"))
 
+    def interactive_choice(cases, head_string, backwant = False, enemy = None):
 
-class statuses:
+                def move_to_string():
+                        string_out = head_string
+                        for move in cases:
+                            string_out = string_out + "\n*" + move
+
+                        if backwant:
+                            string_out = string_out + "\n*back"
+
+                        return string_out
+
+
+                #effectivise, move to separate class, no redefine?
+                Console.console_location_reset()
+                window_x_to_console = 9 #pixels
+                window_y_to_console = 32 #pixels
+                window_character_width = 8 #pixels
+                window_character_height = 12 #pixels
+                uninteractive_lines = head_string.count("\n") + 1
+                string_out = move_to_string()
+                Console.combat_screen(enemy, extra_text = string_out)
+                if backwant:
+                    cases.append("back")
+                line_areas = []
+                for i in range(0, 31):
+                    line_areas.append([])
+                for move in cases:
+                    line_areas[cases.index(move)].append(window_x_to_console)
+                    line_areas[cases.index(move)].append\
+                    (len(move) * window_character_width
+                    + window_x_to_console)
+
+
+                    line_areas[cases.index(move)].append(window_y_to_console + window_character_height * uninteractive_lines)
+                    line_areas[cases.index(move)].append\
+                    ((cases.index(move) + 1) * window_character_height
+                     + window_y_to_console + window_character_height * uninteractive_lines)
+                line_areas = [x for x in line_areas if x != []]
+                temp = len(GameMaster.action_log)
+
+                def on_click(x, y, button, pressed):
+                    if pressed and button == pynput.mouse.Button.left:
+                        for x_y in line_areas:
+                            if x in range(line_areas[line_areas.index(x_y)][0],
+                            line_areas[line_areas.index(x_y)][1]) and\
+                            y in range(line_areas[line_areas.index(x_y)][2],
+                            line_areas[line_areas.index(x_y)][3]):
+                                global case
+                                case = cases[line_areas.index(x_y)]
+                                return False
+
+                with pynput.mouse.Listener(on_click=on_click) as listener:
+                    listener.join()
+
+                if temp != len(GameMaster.action_log):
+                    return None
+                else:
+                    global case
+                    return case
+
+
+class Statuses:
 
     def apply_on_fire(target):
         damage_taken = (int((target.current_hp * 0.1)))
@@ -160,30 +232,34 @@ class statuses:
 
 
 
-supported_statuses = {
-        statuses.apply_on_fire:
+supported_Statuses = {
+        Statuses.apply_on_fire:
         {
+            'head_type': 'debuff',
             'apply_type': 'start_dot', 'type': 'fire',
             'description': 'on fire',
             'on_apply_message_player': 'Hot! You panic and take',
             'on_apply_message_enemy': 'Hot! '
         },
-        statuses.apply_frozen:
+        Statuses.apply_frozen:
         {
+            'head_type': 'debuff',
             'apply_type': 'weaker_speed', 'type': 'ice',
             'description': 'frozen',
             'on_apply_message_player': '',
             'on_apply_message_enemy': ''
         },
-        statuses.apply_blead:
+        Statuses.apply_blead:
         {
+            'head_type': 'debuff',
             'apply_type': 'start_dot', 'type': 'bleeding',
             'description': 'bleeding',
             'on_apply_message_player': 'You better stop this bleeding soon... You take',
             'on_apply_message_enemy': 'Blood spills forth as the enemy takes'
         },
-        statuses.apply_weak:
+        Statuses.apply_weak:
         {
+            'head_type': 'debuff',
             'apply_type': 'weaker_damage', 'type': None,
             'description': 'weak',
             'help': 'Halves the damage of the targets incoming attacks',
@@ -193,7 +269,7 @@ supported_statuses = {
 
     }
 
-class moves:
+class Moves:
 
     def calming_heal(target):
         amount_healed = int((target.current_hp / 5) + (target.max_hp / 10))
@@ -222,13 +298,13 @@ class moves:
 
 
 supported_moves = {
-        moves.calming_heal:
+        Moves.calming_heal:
         {
-        'type': 'heal'
+        'type': 'heal',
         },
-        moves.intense_heal:
+        Moves.intense_heal:
         {
-        'type': 'heal'
+        'type': 'heal',
         }
 
     }
@@ -251,15 +327,15 @@ weapon_effects = {
 class Item:
     def __init__(self, name, weight, value, item_type, item_id, description, rarity):
         if rarity == "very common":
-            droprate = 0.40
+            drop_rate = 0.40
         elif rarity == "common":
-            droprate = 0.2
+            drop_rate = 0.2
         elif rarity == "uncommon":
-            droprate = 0.1
+            drop_rate = 0.1
         elif rarity == "rare":
-            droprate = 0.05
+            drop_rate = 0.05
         elif rarity == "legendary":
-            droprate = 0.02
+            drop_rate = 0.02
         else:
             print("Error: unknown rarity")
 
@@ -269,18 +345,18 @@ class Item:
         self.type = item_type
         self.id = item_id
         self.description = description
-        self.rarity = droprate
+        self.rarity = drop_rate
     def inspect(self):
         if str(self.item_type)[0] in GameMaster.vowels:
             a_or_an = "an"
         else:
             a_or_an = "a"
-        print("{}.It is worth {} gold and weighs {}. It is {} {} that is {}".format(\
+        print("{}.It is worth {} gold and weighs {}. It is {} {} that is {}".format(
         self.description, self.value, self.weight, a_or_an,self.item_type, self.rarity))
 
 
 class Wearable(Item):
-    def __init__(self, name, weight, value, item_type, item_id, description, rarity, \
+    def __init__(self, name, weight, value, item_type, item_id, description, rarity,
     armor_weight, defense, armor_effect = None):
         Item.__init__(self, name, weight, value, item_type, item_id, description, rarity)
         self.armor_weight = armor_weight
@@ -295,12 +371,12 @@ class Wearable(Item):
             special_effect_text = (". {}".format(armor_effects[self.special_effect]['description']))
         else:
             special_effect_text = ""
-        print("{}.It is worth {} gold and weighs {}. It is {} {} that is {}{}".format(\
-        self.description, self.value, self.weight, a_or_an,self.item_type, self.rarity, special_effect_text))
+        print("{}.It is worth {} gold and weighs {}. It is {} {} that is {}{}".format
+              (self.description, self.value, self.weight, a_or_an,self.item_type, self.rarity, special_effect_text))
 
 
 class Weapon(Item):
-    def __init__(self, name, weight, value, item_type, item_id, description, rarity, \
+    def __init__(self, name, weight, value, item_type, item_id, description, rarity,
                 weapon_damage, special_effect = None, effect_rate = 0):
         Item.__init__(self, name, weight, value, item_type, item_id, description, rarity)
         if effect_rate > 0:
@@ -322,17 +398,19 @@ class Weapon(Item):
                 a_or_an = "a"
             if hasattr(Wearable, "self.special_effect"):
                 if self.effect_rate == 0.8:
-                    likelyness = "is very likely to"
+                    likeliness = "is very likely to"
                 elif self.effect_rate == 0.6:
-                    likelyness = "has a decent chance"
+                    likeliness = "has a decent chance"
                 elif self.effect_rate == 0.4:
-                    likelyness = "will maybe"
+                    likeliness = "will maybe"
                 elif self.effect_rate == 0.2:
-                    likelyness = "will probably not"
-                special_effect_text = (". {} and {} affect the enemy".format(armor_effects[self.special_effect]['description']), likelyness)
+                    likeliness = "will probably not"
+                else:
+                    print("Error: Unknown rarity at inspect weapon")
+                special_effect_text = (". {} and {} affect the enemy".format(armor_effects[self.special_effect]['description'], likeliness))
             else:
                 special_effect_text = ""
-            print("{}.It is worth {} gold and weighs {}. It is {} {} that is {}{}".format(\
+            print("{}.It is worth {} gold and weighs {}. It is {} {} that is {}{}".format(
             self.description, self.value, self.weight, a_or_an,self.item_type, self.rarity, special_effect_text))
 
 
@@ -374,7 +452,7 @@ class Weapon(Item):
 
 class GameMaster:
     last_damage_player = ""
-    vowels = ["a", "o", "u", "e", "i"]
+    vowels = ("a", "o", "u", "e", "i")
     action_log = ['               ',  '               ',  '               ',  '               ']
     game_state = {}
     statistics = {}
@@ -390,19 +468,19 @@ class Character:
         else:
             print("{} has {} hp left".format(enemy.name, enemy.current_hp))
 
-    def apply_effect(self, effect, duration):
-        if effect in supported_statuses:
-            if effect in self.statuses:
-               self.statuses[effect] += duration
+    def apply_effect(self, status, duration):
+        if status in supported_Statuses:
+            if status in self.Statuses:
+               self.Statuses[status] += duration
             else:
-               self.statuses[effect] = duration
+               self.Statuses[status] = duration
         else:
             print("Error: Unknown Effect: {}".format(effect))
 
 
 class Player(Character):
-    unlocked_moves = {}
-    statuses = {}
+    unlocked_Moves = {}
+    Statuses = {}
     awareness = 90
     speed = 80
     strength = random.randint(5, 8)
@@ -448,9 +526,9 @@ class Player(Character):
             def loot_drop(self, enemy):
                 print('You successfully defeated {}!'.format(enemy))
                 dropped_items = {}
-                for item in enemy.drops:
-                    if item.rarity * 100 >= random.randint(0, 100):
-                        dropped_items[item] = int(item.rarity * enemy.difficulty)
+                for drop in enemy.drops:
+                    if drop.rarity * 100 >= random.randint(0, 100):
+                        dropped_items[drop] = int(drop.rarity * enemy.difficulty)
 
     def alivecheck(self):
         if player.current_hp <= 0:
@@ -465,7 +543,7 @@ class Player(Character):
         time.sleep(3)
         main_menu()
 
-    def unequip(slot):
+    def unequip(self, slot):
         if player.current_equips[slot] != 'bare':
             try_unequip = inventory.add_item(player.current_equips[slot])
             if try_unequip == "bag_full":
@@ -478,21 +556,21 @@ class Player(Character):
 
     def add_move(self, new_move):
         if new_move in supported_moves:
-            if not new_move in player.unlocked_moves:
-                player.unlocked_moves[new_move] = {}
-                player.unlocked_moves[new_move]['type'] = supported_moves[new_move]['type']
+            if not new_move in player.unlocked_Moves:
+                player.unlocked_Moves[new_move] = {}
+                player.unlocked_Moves[new_move]['type'] = supported_moves[new_move]['type']
             else:
                 return "already_unlocked"
         else:
             print("Error: unknown move: {}".format(new_move.__name__))
 
-    awareness_levels = {95: "paranoid", 90: "on guard", 80: "alert",\
+    awareness_levels = {95: "paranoid", 90: "on guard", 80: "alert",
     60: "drowsy", 30: "distracted", 20: "panicking"}
 
     def awareness_level(self, custom_awareness = None, list_position = False):
-        if list_position == True:
+        if list_position:
             return self.awareness_hierarchy.index(min(list(self.awareness_levels.keys()), key=lambda x:abs(x - self.awareness)))
-        if custom_awareness == None:
+        if custom_awareness is None:
             return self.awareness_levels[min(list(self.awareness_levels.keys()), key=lambda x:abs(x - self.awareness))]
         else:
             return self.awareness_levels[min(list(self.awareness_levels.keys()), key=lambda x:abs(x - custom_awareness))]
@@ -536,15 +614,15 @@ class Player(Character):
             print("Error: Unknown change type at awareness")
 
 
-    speed_levels = {90: "fast as fuck boiii", 80: "fast", 70: "fleet",\
+    speed_levels = {90: "fast as fuck boiii", 80: "fast", 70: "fleet",
     40: "tired", 30: "sluggish", 20: "injured"}
 
     speed_hierarchy = [90, 80, 70, 40, 30, 20]
 
     def speed_level(self, custom_speed = None, list_position = False):
-        if list_position == True:
+        if list_position:
             return self.speed_hierarchy.index(min(list(self.speed_levels.keys()), key=lambda x:abs(x - self.speed)))
-        if custom_speed == None:
+        if custom_speed is None:
             return self.speed_levels[min(list(self.speed_levels.keys()), key=lambda x:abs(x - self.speed))]
         else:
             return self.speed_levels[min(list(self.speed_levels.keys()), key=lambda x:abs(x - custom_speed))]
@@ -585,38 +663,45 @@ class Player(Character):
             print("Error: Unknown change type at speed")
 
     def state(self):
-        if not len(self.statuses) == 0:
-            effect_descriptions = []
-            for effect in self.statuses:
-                effect_descriptions.append(supported_statuses[effect]['description'])
+        if not len(self.Statuses) == 0:
+            status_descriptions = []
+            for status in self.Statuses:
+                status_descriptions.append(supported_Statuses[status]['description'])
 
-            effect_string = ""
-            for effect in effect_descriptions:
-                if effect_descriptions.index(effect) == (len(effect_descriptions) - 2):
-                    effect_string = effect_string + effect + " "
-                elif effect_descriptions.index(effect) == (len(effect_descriptions) - 1):
-                    if not len(effect_string) == 0:
-                        effect_string = effect_string + "and " + effect + "."
+            status_string = ""
+            for status in status_descriptions:
+                if status_descriptions.index(status) == (len(status_descriptions) - 2):
+                    status_string = status_string + status + " "
+                elif status_descriptions.index(status) == (len(status_descriptions) - 1):
+                    if not len(status_string) == 0:
+                        status_string = status_string + "and " + status + "."
                     else:
-                        effect_string = effect_string + effect + "."
+                        status_string = status_string + status + "."
                 else:
-                    effect_string = effect_string + effect + ", "
+                    status_string = status_string + status + ", "
 
-            current_states = "You are " + effect_string
+            current_states = "You are " + status_string
         else:
             current_states = ""
 
         temp_speed = player.speed
         temp_awareness = player.awareness
         temp_strength = self.strength
-        #last
+        for status in player.Statuses:
+            if supported_Statuses[status]['head_type'] == "buff":
+                if supported_Statuses[status]['apply_type'] == "stronger_speed":
+                    temp_speed += self.Statuses[status]
+                elif supported_Statuses[status]['apply_type'] == "stronger_awareness":
+                    temp_awareness += self.Statuses[status]
+                elif supported_Statuses[status]['apply_type'] == "stronger_strength":
+                    temp_strength += self.Statuses[status]
 
-        return "You have {}/{} hp.\nYour current strength is {}\nYou are currently {} and {}.\n{}"\
-        .format(self.current_hp, self.max_hp, self.strength,\
+        return "You have {}/{} hp.\nYour current strength is {}.\nYou are currently {} and {}.\n{}"\
+        .format(self.current_hp, self.max_hp, temp_strength,
         self.awareness_level(temp_awareness), self.speed_level(temp_speed), current_states)
 
 class Enemy(Character):
-    statuses = {}
+    Statuses = {}
     def __init__(self, current_hp, max_hp, strength, name, description, speed, *args):
         if speed == "fast":
             speed = 80
@@ -650,32 +735,32 @@ class Enemy(Character):
 
 class Orc(Enemy):
     resistances = {
-        statuses.apply_on_fire: 0,
-        statuses.apply_blead: 0,
-        statuses.apply_weak: 0,
+        Statuses.apply_on_fire: 0,
+        Statuses.apply_blead: 0,
+        Statuses.apply_weak: 0,
     }
 
 
 class Animal(Enemy):
     resistances = {
-        statuses.apply_on_fire: 0,
-        statuses.apply_blead: 0,
-        statuses.apply_weak: 0,
+        Statuses.apply_on_fire: 0,
+        Statuses.apply_blead: 0,
+        Statuses.apply_weak: 0,
     }
 
 
 class Human(Enemy):
     resistances = {
-        statuses.apply_on_fire: 0,
-        statuses.apply_blead: 0,
-        statuses.apply_weak: 0,
+        Statuses.apply_on_fire: 0,
+        Statuses.apply_blead: 0,
+        Statuses.apply_weak: 0,
     }
 
 class Skeleton(Enemy):
     resistances = {
-        statuses.apply_on_fire: 0,
-        statuses.apply_blead: 0,
-        statuses.apply_weak: 0,
+        Statuses.apply_on_fire: 0,
+        Statuses.apply_blead: 0,
+        Statuses.apply_weak: 0,
     }
 
 
@@ -685,7 +770,7 @@ class Skeleton(Enemy):
 
 def main_menu():
     while True:
-        game_name = "GrötQuest"
+        game_name = "Haitai"
         console_spaces_center_name = 60 - int(len(game_name)/2)
         #Dramatic sort of startup animation
         for i in range(5, -1, -1):
@@ -707,96 +792,94 @@ def combat(enemy, location):
     print("{} approaches!".format(enemy.name))
     def player_turn():
         print("player")
-        for status in list(player.statuses):
-            player.statuses[status] -= 1
-            if player.statuses[status] <= 0:
-                del player.statuses[status]
+        for status in list(player.Statuses):
+            player.Statuses[status] -= 1
+            if player.Statuses[status] <= 0:
+                del player.Statuses[status]
 
-        for effect in player.statuses:
-            if supported_statuses[effect]['apply_type'] == "start_dot":
-                damage = effect(player)
+        for status in player.Statuses:
+            if supported_Statuses[status]['apply_type'] == "start_dot":
+                damage = status(player)
                 GameMaster.action_log.append("{} {} damage.You have {} hp left".format\
-                (supported_statuses[effect]['on_apply_message_player'], damage, player.current_hp))
-                GameMaster.last_damage_player = supported_statuses[effect]['type']
+                (supported_Statuses[status]['on_apply_message_player'], damage, player.current_hp))
+                GameMaster.last_damage_player = supported_Statuses[status]['type']
                 player.alivecheck()
 
         def main_choice():
+            break_main = False
 
-            def execute_move(move_type,):
-                moves = []
-                for move in player.unlocked_moves:
-                    if player.unlocked_moves[move]['type'] == move_type:
-                        moves.append(move)
-                if len(moves) == 0:
+            def execute_move(move_type):
+                def back(__):
+                    pass
+
+                available_moves = []
+                for move in player.unlocked_Moves:
+                    if player.unlocked_Moves[move]['type'] == move_type:
+                        available_moves.append(move)
+                if len(available_moves) == 0:
                     while True:
-                        Console.combat_screen('Type continue when you are ready', enemy, "You Do not Have any Heal Moves Yet. Please Try Something Else")
+                        Console.combat_screen(enemy, 'Type continue when you are ready', "You Do not Have any Heal Moves Yet. Please Try Something Else")
                         next = input(">>> ")
                         if next.lower() == "continue":
                             break
                 else:
                     pretty_moves = []
-                    for move in moves:
+                    for move in available_moves:
                         pretty_string_split = move.__name__.split("_")
                         pretty_string_joined = " ".join(pretty_string_split)
                         pretty_moves.append(pretty_string_joined)
+                    case = Console.interactive_choice(pretty_moves,
+                                              "Click on the move you want to use\nAvailable Moves:",
+                                              backwant = True, enemy = enemy)
+                    available_moves.append(back)
+                    result = available_moves[pretty_moves.index(case)](player)
+                    break_main = False
+                    if result is not None:
+                        GameMaster.action_log.append(result)
+                        break_main = True
+                    if break_main:
+                        return True
 
-                    string_out = "Which move do you want to use?\nAviable moves:"
-                    for move in pretty_moves:
-                        string_out = string_out + "\n*" + move
 
-
-                    while True:
-                        Console.combat_screen('Now, which one will you use?', enemy, string_out)
-                        print(pretty_moves)
-                        move_used = input(">>> ")
-                        if move_used in pretty_moves:
-                            print(player.awareness)
-                            print(player.awareness_level())
-                            result = moves[pretty_moves.index(move_used)](player)
-                            GameMaster.action_log.append(result)
-                            return True
-
-                        elif move_used == "back":
-                            return False
 
 
             Console.clear()
-            supported_head_moves = ['defend', 'heal', 'attack', 'debuff', 'buff', 'use item', 'inspect', 'help']
+            supported_head_Moves = ['defend', 'heal', 'attack', 'debuff',
+                                   'buff', 'use item', 'inspect', 'help']
             while True:
-                Console.combat_screen("What do you want to do?", enemy,\
-                "What Action Do You Want To Perform?\n*Attack\n*Defend\n*Heal\n*debuff\n*buff\n*Use item\n*Inspect\n*Help")
-                action = input(">>> ")
+                action = Console.interactive_choice(supported_head_Moves,\
+                "What Action Do You Want To Perform?", enemy = enemy)
+
 
                 action = action.lower()
-                if action in supported_head_moves or action[:4] == "help" or action[:7] == "inspect":
-                    if action == "heal":
-                        break_main = execute_move("heal")
-                        if break_main == True:
-                            break
+                if action == "heal":
+                    break_main = execute_move("heal")
+                    if break_main:
+                        break
 
                         """
-                        heal_moves = []
-                        for move in player.unlocked_moves:
-                            if player.unlocked_moves[move]['type'] == "heal":
-                                heal_moves.append(move)
-                        if not len(heal_moves) == 0:
+                        heal_Moves = []
+                        for move in player.unlocked_Moves:
+                            if player.unlocked_Moves[move]['type'] == "heal":
+                                heal_Moves.append(move)
+                        if not len(heal_Moves) == 0:
                             Console.clear()
 
-                            pretty_heal_moves = []
-                            for move in heal_moves:
+                            pretty_heal_Moves = []
+                            for move in heal_Moves:
                                 pretty_string_splitted = move.__name__.split("_")
                                 pretty_string_joined = " ".join(pretty_string_splitted)
-                                pretty_heal_moves.append(pretty_string_joined)
+                                pretty_heal_Moves.append(pretty_string_joined)
 
-                            string_out = "Which move do you want to use?\nAviable moves:"
-                            for move in pretty_heal_moves:
+                            string_out = "Which move do you want to use?\navailable Moves:"
+                            for move in pretty_heal_Moves:
                                 string_out = string_out + "\n*" + move
 
                             while True:
                                 Console.combat_screen('Now, which one will you use?', enemy, string_out)
                                 move_used = input(">>> ")
-                                if move_used in pretty_heal_moves:
-                                    result = heal_moves[pretty_heal_moves.index(move_used)](player)
+                                if move_used in pretty_heal_Moves:
+                                    result = heal_Moves[pretty_heal_Moves.index(move_used)](player)
                                     GameMaster.action_log.append(result)
                                     player.state()
                                     break_main = True
@@ -810,88 +893,83 @@ def combat(enemy, location):
                             Console.clear()
                             main_choice("Sorry, You Do not Have any Heal Moves Yet. Please Try Something Else")
                             """
-                    elif action == "defend":
-                        pass
-                    elif action == "attack":
-                        pass
-                    elif action == "debuff":
-                        pass
-                    elif action == "use item":
-                        pass
-                    elif action == "buff":
-                        pass
-                    elif action == "inspect" or action[:7] == "inspect":
-                        if len(action) == 7:
-                            action = "help inspect"
-                        else:
-                            to_inspect = action[7:len(action)]
-                            #last
-
-                            if to_inspect == "self":
-                                Console.combat_screen("Type continue when you are ready",enemy,player.state())
-                                while True:
-                                    next = input(">>> ")
-                                    if next.lower() == "continue":
-                                        break
+                elif action == "defend":
+                    pass
+                elif action == "attack":
+                    pass
+                elif action == "debuff":
+                    pass
+                elif action == "use item":
+                    pass
+                elif action == "buff":
+                    pass
+                elif action == "inspect":
+                    inspectables = ['yourself']
+                    to_inspect = Console.interactive_choice(inspectables, 'Which one of these do you want to inspect?', enemy = enemy)
+                    if to_inspect == "yourself":
+                        while True:
+                            break_local = Console.interactive_choice(["I'm done"], player.state(), enemy = enemy)
+                            if break_local == "I'm done":
+                                break
 
 
 
-                    if action == "help" or action[:4] == "help":
-                        if len(action) == 4:
-                            Console.combat_screen("Type continue when you are ready",enemy,\
-                            'Syntax for help:\n"help {}" where {} is a status, effect, item or anything\nIt can also be a type, example help statuses\nIt can be typed straight into the main combat menu\nExample: help on fire')
+                if action == "help":
+                    if len(action) == 4:
+                        Console.combat_screen("Type continue when you are ready",enemy,
+                        'Syntax for help:\n"help {}" where {} is a status, effect, item or anything\nIt can also be a type, example help Statuses\nIt can be typed straight into the main combat menu\nExample: help on fire')
+                        while True:
+                            next = input(">>> ")
+                            if next.lower() == "continue":
+                                break
+                    else:
+                        help_with = action[5:len(action)]
+
+                        help_options = {
+                            #commands
+                            'inspect': {'description': 'Syntax for inspect:\n"inspect {}" where {} can be the current enemy, self or an item in your inventory\nExample: "inspect feather"\nIt is supposed to bo typed "straight" into the main menu', 'type': 'Moves'},
+                            #Statuses
+                            'on fire': {'description': 'On fire: Sets your awareness to panicking and deals damage equal to 10% of the targets current hp.', 'type': 'Statuses'},
+                            'weak': {'description': 'Weak: Deals damage equal to 15% of the targets current hp', 'type': 'Statuses'},
+                        }
+                        help_heads = ('Moves', 'Statuses', 'sword enchantments')
+                        if help_with in help_options:
                             while True:
+                                Console.combat_screen\
+                                ('Type continue when you are ready', enemy, help_options[help_with]['description'])
                                 next = input(">>> ")
                                 if next.lower() == "continue":
                                     break
-                        else:
-                            help_with = action[5:len(action)]
 
-                            help_options = {
-                                #commands
-                                'inspect': {'description': 'Syntax for inspect:\n"inspect {}" where {} can be the current enemy, self or an item in your inventory\nExample: "inspect feather"\nIt is supposed to bo typed "straight" into the main menu', 'type': 'moves'},
-                                #statuses
-                                'on fire': {'description': 'On fire: Sets your awareness to panicking and deals damage equal to 10% of the targets current hp.', 'type': 'statuses'},
-                                'weak': {'description': 'Weak: Deals damage equal to 15% of the targets current hp', 'type': 'statuses'},
-                            }
-                            help_heads = ['moves', 'statuses', 'sword enchantments']
-                            if help_with in help_options:
-                                while True:
-                                    Console.combat_screen\
-                                    ('Type continue when you are ready', enemy, help_options[help_with]['description'])
-                                    next = input(">>> ")
-                                    if next.lower() == "continue":
-                                        break
+                        elif help_with == "categories":
+                            help_string = ""
+                            for head in help_heads:
+                                help_string = help_string + head + "\n"
+                            while True:
+                                Console.combat_screen('Type continue when you are ready', enemy, help_string)
+                                next = input(">>> ")
+                                if next.lower() == "continue":
+                                    break
 
-                            elif help_with == "categories":
-                                help_string = ""
-                                for head in help_heads:
-                                    help_string = help_string + head + "\n"
-                                while True:
-                                    Console.combat_screen('Type continue when you are ready', enemy, help_string)
-                                    next = input(">>> ")
-                                    if next.lower() == "continue":
-                                        break
+                        elif help_with in help_heads:
+                            help_string = ""
+                            for mechanic in help_options:
+                                if help_options[mechanic]['type'] == help_with:
+                                    help_string = help_string + help_options\
+                                    [mechanic]['description'] + "\n"
 
-                            elif help_with in help_heads:
-                                help_string = ""
-                                for effect in help_options:
-                                    if help_options[effect]['type'] == help_with:
-                                        help_string = help_string + help_options\
-                                        [effect]['description'] + "\n"
-
-                                while True:
-                                    Console.combat_screen\
-                                    ('Type continue when you are ready', enemy, help_string)
-                                    next = input(">>> ")
-                                    if next.lower() == "continue":
-                                        break
-                else:
-                    print("Sorry, i didn't quite get that. Please try again")
+                            while True:
+                                Console.combat_screen\
+                                ('Type continue when you are ready', enemy, help_string)
+                                next = input(">>> ")
+                                if next.lower() == "continue":
+                                    break
         main_choice()
     def enemy_turn():
+
         print("enemy")
         print("\n")
+
 
     while True:
         if (player.awareness * 100) >= random.randint(0, 100):
@@ -899,22 +977,22 @@ def combat(enemy, location):
         else:
             player_first = False
         while True:
-            if player_first == True:
+            if player_first:
                 player_turn()
                 enemy_turn()
             else:
                 enemy_turn()
                 player_turn()
 
-            temp_player_speed = int((player.speed))
-            temp_enemy_speed = int((enemy.speed))
+            temp_player_speed = int(player.speed)
+            temp_enemy_speed = int(enemy.speed)
 
-            for effect in player.statuses:
-                if supported_statuses[effect]['apply_type'] == 'weaker_speed':
+            for effect in player.Statuses:
+                if supported_Statuses[effect]['apply_type'] == 'weaker_speed':
                     temp_player_speed = effect(temp_player_speed)
 
-            for effect in enemy.statuses:
-                if supported_statuses[effect]['apply_type'] == 'weaker_speed':
+            for effect in enemy.Statuses:
+                if supported_Statuses[effect]['apply_type'] == 'weaker_speed':
                     temp_enemy_speed = effect(temp_enemy_speed)
 
             if random.randint(random.randint(int((temp_player_speed / 3)), (temp_player_speed - 10)), temp_player_speed * 2) >= \
@@ -926,10 +1004,9 @@ def combat(enemy, location):
 
 player = Player()
 hen = Enemy(5, 5, 50, 'Gullbert the hen', 'A hen', 'tired', "feather", "radish")
-player.add_move(moves.calming_heal)
-player.add_move(moves.intense_heal)
-hen.dealdmg(hen, player, 10)
-player.apply_effect(statuses.apply_frozen, 10)
+player.add_move(Moves.calming_heal)
+player.add_move(Moves.intense_heal)
+player.apply_effect(Statuses.apply_frozen, 10)
 
 
 combat(hen, "swamp")
