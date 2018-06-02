@@ -1,4 +1,5 @@
 # Better drop system
+# Fix back windows 10
 import pickle
 import random
 import time
@@ -24,13 +25,16 @@ def isint(variable_to_test):
     except ValueError:
         return False
 
+
 class WrongArgsError(Exception):
     # Custom exception to be raised when an unsupported argument is passed
     pass
 
+
 class GameMasterError(Exception):
     # Custom exception to be raised when an error related to the game master is found
     pass
+
 
 class Console:
     # A class for collecting all methods related to the console
@@ -43,7 +47,7 @@ class Console:
     def console_location_reset():
         # Sets the console to a specific location and resizes it
         hwnd = win32gui.GetForegroundWindow()
-        win32gui.MoveWindow(hwnd, 0, 0, 1000, 400, True)
+        win32gui.MoveWindow(hwnd, GameMaster.console_location_x, GameMaster.console_location_y, 1000, 400, True)
         os.system("mode con cols=120 lines=30")
 
     @staticmethod
@@ -199,7 +203,7 @@ class Console:
             print(lines[i])
 
     @staticmethod
-    def interactive_choice(cases: list, head_string: str, backwant: bool =False, enemy: object =None,
+    def interactive_choice(cases: list, head_string: str, back_want: bool =False, enemy: object =None,
                            battle: bool=False, enumerated: bool=False):
         # This method makes use of the print_with_layout method in order to make some printed objects clickable
         # Cases is a list of the clickable strings
@@ -213,7 +217,7 @@ class Console:
             for action in cases:
                 string_output = string_output + "\n*" + action
 
-            if backwant:
+            if back_want:
                 string_output = string_output + "\n*back"
 
             return string_output
@@ -221,10 +225,10 @@ class Console:
         # Information about the console to be used during text area calculations
         Console.console_location_reset()
         # Console borders need to be accounted for
-        console_x_border: int = 9  # pixels
-        console_y_border = 32  # pixels
-        window_character_width = 8  # pixels
-        console_character_height = 12  # pixels
+        console_x_border: int = GameMaster.x_to_console  # pixels
+        console_y_border = GameMaster.y_to_console  # pixels
+        window_character_width = GameMaster.font_size_x  # pixels
+        console_character_height = GameMaster.font_size_y  # pixels
         # Some lines are not clickable
         uninteractive_lines = head_string.count("\n") + 1
         # Formatting the string to be printed
@@ -236,7 +240,7 @@ class Console:
             Console.print_with_layout(extra_text=string_out)
 
         # Adding a back option if desired
-        if backwant:
+        if back_want:
             cases.append("back")
 
         # Calculating the areas which are clickable
@@ -276,7 +280,7 @@ class Console:
         with pynput.mouse.Listener(on_click=on_click) as listener:
             listener.join()
 
-        if temp != len(GameMaster.action_log):
+        if case == "back":
             # If the input is back, return None
             return None
         else:
@@ -638,6 +642,12 @@ class GameMaster:
     action_log = ['               ', '               ', '               ', '               ', '               ']
     game_state = {}
     statistics = {}
+    y_to_console = int
+    x_to_console = int
+    font_size_x = int
+    font_size_y = int
+    console_location_x = int
+    console_location_y = int
 
 
 class Character:
@@ -1091,9 +1101,6 @@ def combat(enemy, location):
         def main_choice():
 
             def execute_move(move_type):
-                def back(__):
-                    pass
-
                 available_moves = []
                 for ability in player.unlocked_Moves:
                     if player.unlocked_Moves[ability]['type'] == move_type:
@@ -1110,14 +1117,13 @@ def combat(enemy, location):
                         pretty_moves.append(pretty_string_joined)
                     move = Console.interactive_choice(pretty_moves,
                                                       "Click on the move you want to use\nAvailable Moves:",
-                                                      backwant=True, enemy=enemy, battle=True)
-                    available_moves.append(back)
-                    result: str = available_moves[pretty_moves.index(move)](player)
-                    break1 = False
+                                                      back_want=True, enemy=enemy, battle=True)
+                    if move is not None:
+                        result: str = available_moves[pretty_moves.index(move)](player)
+                    else:
+                        result = None
                     if result is not None:
                         GameMaster.action_log.append(result)
-                        break1 = True
-                    if break1:
                         return True
 
             Console.clear()
@@ -1129,33 +1135,33 @@ def combat(enemy, location):
 
                 action = action.lower()
                 if action == "heal":
-                    break_main = execute_move("heal")
-                    if break_main:
+                    end_player_choice = execute_move("heal")
+                    if end_player_choice:
                         break
 
                 elif action == "defend":
-                    break_main = execute_move("defend")
-                    if break_main:
+                    end_player_choice = execute_move("defend")
+                    if end_player_choice:
                         break
 
                 elif action == "attack":
-                    break_main = execute_move("attack")
-                    if break_main:
+                    end_player_choice = execute_move("attack")
+                    if end_player_choice:
                         break
 
                 elif action == "debuff":
-                    break_main = execute_move("debuff")
-                    if break_main:
+                    end_player_choice = execute_move("debuff")
+                    if end_player_choice:
                         break
 
                 elif action == "use item":
-                    break_main = execute_move("use item")
-                    if break_main:
+                    end_player_choice = execute_move("use item")
+                    if end_player_choice:
                         break
 
                 elif action == "buff":
-                    break_main = execute_move("buff")
-                    if break_main:
+                    end_player_choice = execute_move("buff")
+                    if end_player_choice:
                         break
 
                 elif action == "view and edit your inventory":
@@ -1164,7 +1170,7 @@ def combat(enemy, location):
                         # Asking the player for what part of their inventory they want to view
                         case_inventory = Console.interactive_choice(['Current equips', 'Items'],
                                                                     'what part of your inventory do you want to view?',
-                                                                    backwant=True, battle=True, enemy=enemy)
+                                                                    back_want=True, battle=True, enemy=enemy)
                         # If the player selects back
                         if case_inventory is None:
                             break
@@ -1177,7 +1183,7 @@ def combat(enemy, location):
                                 # We will be using a text changing depending on the equip as the case
                                 # Therefore, we will enumerate the cases
                                 numbered_case = Console.interactive_choice(case_list, head_string,
-                                                                           backwant=True, battle=True,
+                                                                           back_want=True, battle=True,
                                                                            enemy=enemy, enumerated=True)
 
                                 def handle_slot(slot: str, joke_text: str=''):
@@ -1201,7 +1207,7 @@ def combat(enemy, location):
                                     slot_actions.append('Unequip')
                                     action = Console.interactive_choice(slot_actions,
                                                                         slot_dict,
-                                                                        battle=True, enemy=enemy, backwant=True)
+                                                                        battle=True, enemy=enemy, back_want=True)
                                     if action == "Unequip":
                                         if not Player.Inventory.current_equips[slot]:
                                             Player.Inventory.unequip(slot)
@@ -1226,7 +1232,7 @@ def combat(enemy, location):
                     inspectable_objects = ['inventory items', 'yourself', '{}'.format(player.current_enemy.name)]
                     to_inspect = Console.interactive_choice(inspectable_objects, ('Which one of these do you '
                                                                                   'want to inspect?'),
-                                                            enemy=enemy, battle=True, backwant=True)
+                                                            enemy=enemy, battle=True, back_want=True)
                     if to_inspect == "yourself":
                         while True:
                             break_local = Console.interactive_choice(["I'm done"], player.inspect(player), enemy=enemy,
@@ -1241,7 +1247,7 @@ def combat(enemy, location):
                     elif to_inspect == "inventory items":
                         head_string, inventory_items = player.Inventory.view()
                         item_to_inspect = Console.interactive_choice(inventory_items, head_string,
-                                                                     battle=True, enemy=enemy, backwant=True)
+                                                                     battle=True, enemy=enemy, back_want=True)
 
                         # Removing integer amounts and whitespace from the string so that it can be used
                         item_to_inspect = item_to_inspect.replace(" ", "")
@@ -1305,23 +1311,23 @@ def combat(enemy, location):
                     while True:
                         help_with = Console.interactive_choice(list(help_options.keys()),
                                                                'What sort of thing do you want to know more about?',
-                                                               backwant=True, battle=True, enemy=enemy)
-                        if help_with == "back":
+                                                               back_want=True, battle=True, enemy=enemy)
+                        if help_with is None:
                             break
                         while True:
                             subcategory = Console.interactive_choice(list(help_options[help_with].keys()),
                                                                      'Which one of these categories '
                                                                      'do you want to know more about?',
-                                                                     backwant=True, battle=True, enemy=enemy)
-                            if subcategory == "back":
+                                                                     back_want=True, battle=True, enemy=enemy)
+                            if subcategory is None:
                                 break
                             while True:
                                 final_type = Console.interactive_choice(list(help_options[help_with]
                                                                              [subcategory].keys()),
                                                                         'Which one of these do you want to know more '
                                                                         'about?',
-                                                                        battle=True, enemy=enemy, backwant=True)
-                                if final_type == "back":
+                                                                        battle=True, enemy=enemy, back_want=True)
+                                if final_type is None:
                                     break
                                 Console.interactive_choice(["back"], help_options[help_with][subcategory]
                                                            [final_type], battle=True, enemy=enemy)
@@ -1370,11 +1376,41 @@ def combat(enemy, location):
             time.sleep(2)
 
 
-player = Player()
-hen = Enemy(1, 'Gullbert the hen', 'A hen', 40, 20, 'male', "feather", "radish")
-player.add_move(Moves.calming_heal)
-player.add_move(Moves.intense_heal)
-hen.apply_effect(Statuses.apply_frozen, 10, 50)
-Console.console_location_reset()
-player.Inventory.add_item(Gold, 10)
-combat(hen, "swamp")
+def windows_version_handling():
+    accepted_windows_versions = ('windows 8', 'windows 10', 'other')
+    print("Welcome!\nI see this is your first time running this game.\nSo far, this game is only supported on "
+          'windows 10 and windows 8.\nPlease type in which one of these you are using.\nIf it is antoher version, try'
+          ' typing "other" although the game might not play well')
+
+    while True:
+        version = input("Please type your version\n>>> ")
+        version = version.lower()
+        if version in accepted_windows_versions:
+            if version == 'windows 8':
+                GameMaster.console_location_x = 0
+                GameMaster.console_location_y = 0
+                GameMaster.font_size_x = 8
+                GameMaster.font_size_y = 12
+                GameMaster.x_to_console = 9
+                GameMaster.y_to_console = 32
+                break
+            elif version == 'windows 10':
+                GameMaster.console_location_x = -7
+                GameMaster.console_location_y = 0
+                GameMaster.font_size_x = 8
+                GameMaster.font_size_y = 16
+                GameMaster.x_to_console = 1
+                GameMaster.y_to_console = 30
+                break
+
+
+if __name__ == '__main__':
+    windows_version_handling()
+    player = Player()
+    hen = Enemy(1, 'Gullbert the hen', 'A hen', 40, 20, 'male', "feather", "radish")
+    player.add_move(Moves.calming_heal)
+    player.add_move(Moves.intense_heal)
+    hen.apply_effect(Statuses.apply_frozen, 10, 50)
+    Console.console_location_reset()
+    player.Inventory.add_item(Gold, 10)
+    combat(hen, "swamp")
