@@ -981,10 +981,13 @@ class Enemy(Character):
     # noinspection PyMissingConstructor
     def __init__(self, rank: int, name: str, description: str, speed: int, awareness: int, gender: str, *drops,
                  injured: float = False):
-        self.current_hp = int(player.current_hp * (rank * 0.5))
+        self.current_hp = (int(player.current_hp * (rank * 0.5)) - random.randint(-3, 5))
         if injured:
             self.current_hp = int(self.current_hp * injured)
-        self.max_hp = int(player.current_hp * (rank * 0.5))
+        self.max_hp = int(player.current_hp * (rank * 0.5)) + (random.randint(-int(player.max_hp * 0.3),
+                                                                              int(player.max_hp * 0.3)))
+        if self.current_hp > self.max_hp:
+            self.current_hp = self.max_hp
         self.strength = round(player.max_hp * (rank * 0.1)) + rank * 2
         self.awareness = awareness
         self.name = name
@@ -1371,7 +1374,7 @@ player = Player()
 hen = Enemy(1, 'Gullbert the hen', 'A hen', 40, 20, 'male', "feather", "radish")
 player.add_move(Moves.calming_heal)
 player.add_move(Moves.intense_heal)
-hen.apply_effect(Statuses.apply_frozen, 10)
+hen.apply_effect(Statuses.apply_frozen, 10, 50)
 Console.console_location_reset()
 player.Inventory.add_item(Gold, 10)
 combat(hen, "swamp")
