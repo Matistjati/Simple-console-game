@@ -5,6 +5,8 @@ import random
 import time
 import os
 import win32gui
+from typing import Any, Union
+
 import pynput
 
 
@@ -142,13 +144,13 @@ class Console:
             spacing_4 = " " * (max_spacing - len(GameMaster.action_log[len(GameMaster.action_log) - 4]))
 
             action_log_mid_1 = (' ' * (overlapping_action_log_spacing - (len(player_mid_healthbar)) +
-                                (overlapping_action_log_spacing_special - len(line_23)))
+                                       (overlapping_action_log_spacing_special - len(line_23)))
                                 + standing_line +
                                 GameMaster.action_log[len(GameMaster.action_log) - 1]
                                 + spacing_1 + standing_line)
 
             action_log_mid_2 = (' ' * (overlapping_action_log_spacing - len(player_bot_healthbar) +
-                                (overlapping_action_log_spacing_special - len(line_24)))
+                                       (overlapping_action_log_spacing_special - len(line_24)))
                                 + standing_line +
                                 GameMaster.action_log[len(GameMaster.action_log) - 2]
                                 + spacing_2 + standing_line)
@@ -162,7 +164,7 @@ class Console:
                                 + spacing_4 + standing_line)
 
             action_log_top = (' ' * (overlapping_action_log_spacing - len(player_top_healthbar) +
-                              (overlapping_action_log_spacing_special - len(line_22))) + " " +
+                                     (overlapping_action_log_spacing_special - len(line_22))) + " " +
                               "_" * max_spacing + "Action log")
 
             action_log_bot = (" " + ' ' * (normal_action_log_spacing - len(line_27)) + top_line * max_spacing)
@@ -203,13 +205,13 @@ class Console:
             print(lines[i])
 
     @staticmethod
-    def interactive_choice(cases: list, head_string: str, back_want: bool =False, enemy: object =None,
-                           battle: bool=False, enumerated: bool=False):
+    def interactive_choice(cases: list, head_string: str, back_want: bool = False, enemy: object = None,
+                           battle: bool = False, enumerated: bool = False):
         # This method makes use of the print_with_layout method in order to make some printed objects clickable
         # Cases is a list of the clickable strings
         # Head_string will be printed at the top of the console and will not be clickable
         # If battle is True, an enemy must be supplied and print_with_layout will use the battle layout
-        # If backwant is True, a back option will be added
+        # If back_want is True, a back option will be added
         # Returns the name of the string clicked(or None, signaling that back was clicked)
         def move_to_string():
             # Formatting the string to be printed
@@ -224,15 +226,23 @@ class Console:
 
         # Information about the console to be used during text area calculations
         Console.console_location_reset()
+
         # Console borders need to be accounted for
         console_x_border: int = GameMaster.x_to_console  # pixels
         console_y_border = GameMaster.y_to_console  # pixels
-        window_character_width = GameMaster.font_size_x  # pixels
-        console_character_height = GameMaster.font_size_y  # pixels
+        font_size_x = GameMaster.font_size_x  # pixels
+        font_size_y = GameMaster.font_size_y  # pixels
+
         # Some lines are not clickable
         uninteractive_lines = head_string.count("\n") + 1
+
         # Formatting the string to be printed
         string_out = move_to_string()
+
+        # Raising an exception if the console's heights and widths has not been defined
+        if console_x_border == 0 or console_y_border == 0 or font_size_x == 0 or font_size_y == 0:
+            raise GameMasterError("No defined console size values")
+
         # Battle layout or not
         if battle:
             Console.print_with_layout(enemy=enemy, extra_text=string_out, battle=True)
@@ -250,16 +260,13 @@ class Console:
             line_areas.append([])
         for move in cases:
             line_areas[cases.index(move)].append(console_x_border)
-            line_areas[cases.index(move)].append(len(move) * window_character_width + console_x_border)
+            line_areas[cases.index(move)].append(len(move) * font_size_x + console_x_border)
 
-            line_areas[cases.index(move)].append(console_y_border + console_character_height * uninteractive_lines)
-            line_areas[cases.index(move)].append((cases.index(move) + 1) * console_character_height
-                                                 + console_y_border + console_character_height * uninteractive_lines)
+            line_areas[cases.index(move)].append(console_y_border + font_size_y * uninteractive_lines)
+            line_areas[cases.index(move)].append((cases.index(move) + 1) * font_size_y
+                                                 + console_y_border + font_size_y * uninteractive_lines)
         # Removing empty nested lists
         line_areas = [x for x in line_areas if x != []]
-
-        # Support for back feature
-        temp = len(GameMaster.action_log)
 
         def on_click(x, y, button, pressed):
             # Checking whether a left click is performed
@@ -284,7 +291,7 @@ class Console:
             # If the input is back, return None
             return None
         else:
-            # If a clickable object was clicked, return which one
+            # If a clickable case was clicked, return which one
             # If enumerated is true, we return the index of the case
             if enumerated:
                 return cases.index(case)
@@ -443,6 +450,7 @@ class Item:
         description -- the item's flavor text
         rarity -- the rate at which the item is dropped
     """
+
     def __init__(self, name: str, weight: int, value: int, item_type: str, item_id: int, description: str, rarity: int):
         self.rarity = rarity
         self.name = name
@@ -465,7 +473,7 @@ class Item:
     rarity_hierarchy = (2, 5, 10, 20, 40, 75)
 
     def rarity_level(self):
-        return self.rarity_levels[closest_match(self.rarity, self.rarity_hierarchy)]
+        return Item.rarity_levels[closest_match(self.rarity, Item.rarity_hierarchy)]
 
     # Displaying information about the item when inspected
     def inspect(self):
@@ -475,6 +483,10 @@ class Item:
         else:
             a_or_an = "a"
 
+        # Instead of "it weighs 0", it becomes "it weighs nothing"
+        weight = self.weight
+        if weight == 0:
+            weight = "nothing"
         # Some flavor texts contains quest marks or exclamation marks at the end
         # We do not want (flavor text)?. hence, we do the following operation
         temp_description = self.description
@@ -484,7 +496,7 @@ class Item:
 
         # Concatenating it all together
         return ("{}\nIt is worth {} gold and weighs {}.\nIt is {} {} that is {}".format
-                (temp_description, self.value, self.weight, a_or_an, self.item_type, self.rarity_level()))
+                (temp_description, self.value, weight, a_or_an, self.item_type, Item.rarity_level(self)))
 
 
 class Wearable(Item):
@@ -502,15 +514,12 @@ class Wearable(Item):
         Armor_effect: A special effect bound to the armor
         Set_member: What armor set the armor is part of (used for set bonuses)
     """
-    inspect_flavor_text = "Error: no set inspect_flavor_text"
+    effect_inspect_text = "Error: no inspection text"
 
     # noinspection PyMethodOverriding
-    def inspect(self, setbonus):
-        if setbonus:
-            special_effect_text = ". {}".format(self.inspect_flavor_text)
-        else:
-            special_effect_text = ""
-        return super(Wearable, self).inspect() + "{}".format(special_effect_text)
+    def inspect(self):
+        # noinspection PyUnresolvedReferences
+        return Item.inspect(self) + "\n{}".format(self.parent.effect_inspect_text)
 
 
 class Weapon(Item):
@@ -558,79 +567,190 @@ class Weapon(Item):
 class Bare(Wearable):
     item_id = 1
 
-    set_effect_description_good = 'People are astonished by your amazing body, making negotiating easier'
-    set_effect_description_bad = "People won't trust you, running around without clothes"
+    set_effect_description_good = 'People are astonished by your amazing body, increasing your speech by '
+    set_effect_description_bad = "People won't trust you, running around without clothes, decreasing your speech by "
     set_effect = ArmorEffect.change_stat
+
+    effect_inspect_text = "If you're weak and naked, no one will trust you, making negotiating harder.\n" \
+                          "However, if you're buff, people will be amazed, making negotiating easier"
+
     change_type = "speech"
     inspect_flavor_text = 'Get some real clothes, you hobo'
-    Head = {
-        'weight': 0,
-        'value': 'unsellable',
-        'rarity': 'unobtainable',
-        'defense': 1,
-        'description_good': 'Even though your face looks terrible, people are distracted by your glorious body,',
-        'effect_amount_good': 0,
-        'description_bad': 'Your face looks terrible, it will make negotiating harder',
-        'effect_amount_bad': -2
-    }
 
-    Chest = {
-        'weight': 0,
-        'value': 'unsellable',
-        'rarity': 'unobtainable',
-        'defense': 3,
-        'description_good': 'Nice gains, bro',
-        'effect_amount_good': 4,
-        'description_bad': 'You even lift, bro?',
-        'effect_amount_bad': -1
-    }
+    class Head:
+        def __init__(self, parent):
+            self.parent = parent
 
-    Legs = {
-        'weight': 0,
-        'value': 'unsellable',
-        'rarity': 'unobtainable',
-        'defense': 2,
-        'description_good': 'Not wearing pants only seems to be in your flavor with such a body',
-        'effect_amount_good': 1,
-        'description_bad': 'oh please, at least put some pants on',
-        'effect_amount bad': -7
+        description = "Just a plain old ugly head"
+        item_type = "wearable"
+        name = "Bare"
+        weight = 0
+        value = 'unsellable'
+        rarity = 'unobtainable'
+        defense = 1
+        description_good = 'Even though your face looks terrible, people are distracted by your glorious body,'
+        effect_amount_good = 0
+        description_bad = 'Your face looks terrible, it will make negotiating harder\n'
+        effect_amount_bad = -2
 
-    }
+    class Chest:
+        def __init__(self, parent):
+            self.parent = parent
+
+        description = "Just a plain old torso"
+        item_type = "wearable"
+        name = "Bare"
+        weight = 0
+        value = 'unsellable'
+        rarity = 'unobtainable'
+        defense = 3
+        description_good = 'Nice gains, bro'
+        effect_amount_good = 4
+        description_bad = 'You even lift, bro?'
+        effect_amount_bad = -1
+
+    class Legs:
+        def __init__(self, parent):
+            self.parent = parent
+
+        description = "What humans use to walk"
+        item_type = "wearable"
+        name = "Bare"
+        weight = 0
+        value = 'unsellable'
+        rarity = 'unobtainable'
+        defense = 2
+        description_good = 'Not wearing pants only seems to be in your flavor with such a body'
+        effect_amount_good = 1
+        description_bad = 'oh please, at least put some pants on'
+        effect_amount_bad = -7
 
     @staticmethod
-    def get_set_part_description(set_part: dict) -> str:
+    def get_set_part_description(set_part) -> str:
         if player.strength > 50:
-            return set_part['description_good']
+            return set_part.description_good
         else:
-            return set_part['description_bad']
+            return set_part.description_bad
 
     @staticmethod
-    def get_set_effect(user: object, head: bool, chest: bool, legs: bool):
+    def get_set_effect(user: object, head: bool = False, chest: bool = False, legs: bool = False):
         change_amount = 0
-        effect_level = 0
         if user.strength > 50:
             if head:
-                effect_level += 1
-                change_amount += Bare.Head['effect_amount_good']
+                change_amount += Bare.Head.effect_amount_good
             if chest:
-                effect_level += 1
-                change_amount += Bare.Chest['effect_amount_good']
+                change_amount += Bare.Chest.effect_amount_good
             if legs:
-                effect_level += 1
-                change_amount += Bare.Legs['effect_amount_good']
-            return "speech", change_amount, effect_level, Bare.set_effect_description_good
+                change_amount += Bare.Legs.effect_amount_good
+            return "speech", change_amount, Bare.set_effect_description_good
         else:
             if head:
-                effect_level += 1
-                change_amount -= Bare.Head['effect_amount_good']
+                change_amount -= Bare.Head.effect_amount_bad
             if chest:
-                effect_level += 1
-                change_amount -= Bare.Chest['effect_amount_good']
+                change_amount -= Bare.Chest.effect_amount_bad
             if legs:
-                effect_level += 1
-                change_amount -= Bare.Legs['effect_amount_good']
-            return "speech", change_amount, effect_level, Bare.set_effect_description_bad
+                change_amount -= Bare.Legs.effect_amount_bad
+            return "speech", change_amount, Bare.set_effect_description_bad
 
+
+Bare.Head = Bare.Head(Bare)
+Bare.Chest = Bare.Chest(Bare)
+Bare.Legs = Bare.Legs(Bare)
+
+
+class Leaves(Wearable):
+    item_id = 2
+
+    set_effect_description_good = "People are happy that you're hiding at least a little of your weak body, " \
+                                  "increasing your speech by "
+    set_effect_description_bad = "People are disappointed that you're hiding your glorious body, decreasing " \
+                                 "your speech by "
+    set_effect = ArmorEffect.change_stat
+    effect_inspect_text = "If you're weak, people will respect you for hiding your weak body, increasing your " \
+                          "speech\nHowever, if you're buff, people will become angry for not showing yourself," \
+                          " decreasing your speech"
+    change_type = "speech"
+    inspect_flavor_text = 'Mother nature to the rescue!'
+
+    class Head:
+        def __init__(self, parent):
+            self.parent = parent
+
+        description = "A pretty leaf crown"
+        item_type = "wearable"
+        name = "leaf crown"
+        weight = 0
+        value = 2
+        rarity = 3
+        defense = 2
+        description_good = 'Your leaf crown actually hides your horrible face pretty well'
+        effect_amount_good = 1
+        description_bad = "People don't really mind your face since your body is so muscular"
+        effect_amount_bad = -0
+
+    class Chest:
+        def __init__(self, parent):
+            self.parent = parent
+
+        description = "A well-made leaf chestmail"
+        item_type = "wearable"
+        name = "leaf chestmail"
+        weight = 0
+        value = 4
+        rarity = 3
+        defense = 2
+        description_good = 'This finely crafted leaf chestmail hides your weak chest perfectly'
+        effect_amount_good = 2
+        description_bad = 'Why hide your amazing chest?'
+        effect_amount_bad = -4
+
+    class Legs:
+        def __init__(self, parent):
+            self.parent = parent
+
+        description = "Just some leafs to cover the private parts. The leggings part was a lie"
+        item_type = "wearable"
+        name = "leaf leggings"
+        weight = 0
+        value = 3
+        rarity_level = 3
+        defense = 2
+        description_good = 'People are looking happy that you at least covered up your private parts'
+        effect_amount_good = 4
+        description_bad = 'People look angry that you hide your amazing body'
+        effect_amount_bad = -2
+
+    @staticmethod
+    def get_set_part_description(set_part) -> str:
+        if player.strength < 50:
+            return set_part.description_good
+        else:
+            return set_part.description_bad
+
+    @staticmethod
+    def get_set_effect(user: object, head: bool = False, chest: bool = False, legs: bool = False):
+        change_amount = 0
+        if user.strength < 50:
+            if head:
+                change_amount += Leaves.Head.effect_amount_good
+            if chest:
+                change_amount += Leaves.Chest.effect_amount_good
+            if legs:
+                change_amount += Leaves.Legs.effect_amount_good
+            return "speech", change_amount, Leaves.set_effect_description_good
+        else:
+            if head:
+                change_amount -= Leaves.Head.effect_amount_bad
+            if chest:
+                change_amount -= Leaves.Chest.effect_amount_bad
+            if legs:
+                change_amount -= Leaves.Legs.effect_amount_bad
+            return "speech", change_amount, Leaves.set_effect_description_bad
+
+
+Leaves.Head = Leaves.Head(Leaves)
+Leaves.Chest = Leaves.Chest(Leaves)
+Leaves.Legs = Leaves.Legs(Leaves)
 
 Gold = Item('Gold', 0, 1, 'valuable', 0, 'The foundation of modern society.. or perhaps its worst mistake?', 75)
 
@@ -642,12 +762,12 @@ class GameMaster:
     action_log = ['               ', '               ', '               ', '               ', '               ']
     game_state = {}
     statistics = {}
-    y_to_console = int
-    x_to_console = int
-    font_size_x = int
-    font_size_y = int
-    console_location_x = int
-    console_location_y = int
+    y_to_console = 0
+    x_to_console = 0
+    font_size_x = 0
+    font_size_y = 0
+    console_location_x = 0
+    console_location_y = 0
 
 
 class Character:
@@ -863,27 +983,31 @@ class Player(Character):
     class Inventory:
         items = {}
         max_spaces = 10
-        current_equips = {'head': Bare, 'chest': Bare, 'legs': Bare}
+        current_equips = {'head': Leaves.Head, 'chest': Leaves.Chest, 'legs': Leaves.Legs}
 
         def calculate_carry_strength():
-            temp_strength = player.strength
-
-
-
+            temp_strength = player.calculate_stat_change('strength', player.strength)
 
         @staticmethod
-        def unequip(slot):
-            if player.current_equips[slot] != Bare:
-                try_unequip = Player.Inventory.add_item(player.current_equips[slot])
+        def unequip(slot: str):
+            if player.Inventory.current_equips[slot] != Bare:
+                try_unequip = Player.Inventory.add_item(player.Inventory.current_equips[slot])
                 if try_unequip == "bag_full":
                     return
                 else:
-                    player.current_equips[slot] = Bare
+                    if slot == "head":
+                        player.Inventory.current_equips[slot] = Bare.Head
+                    elif slot == "chest":
+                        player.Inventory.current_equips[slot] = Bare.Chest
+                    elif slot == "legs":
+                        player.Inventory.current_equips[slot] = Bare.Legs
+                    else:
+                        raise WrongArgsError("slot != head, chest or legs")
             else:
                 print('You have nothing equipped in the {} slot'.format(slot))
 
         @staticmethod
-        def add_item(item, amount=1):
+        def add_item(item, amount: int = 1):
             current_weight = 0
             if not len(Player.Inventory.items) == 0:
                 for thing in Player.Inventory.items:
@@ -922,13 +1046,95 @@ class Player(Character):
             return head_string, item_list
 
         @staticmethod
+        def view_raw_names():
+            # Returns a list of all the object names in the inventory
+            item_list = []
+            for item in player.Inventory.items:
+                item_list.append(item)
+
+            return item_list
+
+        # noinspection PyUnresolvedReferences
+        @staticmethod
         def view_equips():
-            # Returns a string with the player's current equips
-            return ['Head: {}'.format(Player.Inventory.current_equips['head'].__name__),
-                    'Chest: {}'.format(Player.Inventory.current_equips['chest'].__name__),
-                    'Legs: {}'.format(Player.Inventory.current_equips['legs'].__name__)], 'Current equips:'
+            # Returns a string with the player's current equips and the effects of the armor
+            # This code is messy, i don't want to talk about it
+            # It works(Probably)
+            effect_level_head = 1
+            effect_level_chest = 1
+            effect_level_legs = 1
+            if player.Inventory.current_equips['head'].parent == player.Inventory.current_equips['chest'].parent:
+                effect_level_head += 1
+                effect_level_chest += 1
+            if player.Inventory.current_equips['head'].parent == player.Inventory.current_equips['legs'].parent:
+                effect_level_head += 1
+                effect_level_legs += 1
+            if player.Inventory.current_equips['chest'].parent == player.Inventory.current_equips['legs'].parent:
+                effect_level_legs += 1
+                effect_level_chest += 1
 
+            if effect_level_chest == 3:
+                effect_level_chest += 2
+            if effect_level_head == 3:
+                effect_level_head += 2
+            if effect_level_legs == 3:
+                effect_level_legs += 2
+            head_string = "Equipment bonuses:\n"
+            armor_effect_descriptions = []
+            armor_effect_amounts = []
+            for set_part in player.Inventory.current_equips:
+                if set_part == "head":
+                    __, amount, description = (player.Inventory.current_equips[set_part].parent
+                                               .get_set_effect(player, head=True))
+                elif set_part == "chest":
+                    __, amount, description = (player.Inventory.current_equips[set_part].parent
+                                               .get_set_effect(player, chest=True))
+                elif set_part == "legs":
+                    __, amount, description = (player.Inventory.current_equips[set_part].parent
+                                               .get_set_effect(player, legs=True))
+                else:
+                    raise GameMasterError("Something is not right in current_equips")
 
+                armor_effect_descriptions.append(description)
+                armor_effect_amounts.append(amount)
+
+            armor_effect_amounts[0] *= effect_level_head
+            armor_effect_amounts[1] *= effect_level_chest
+            armor_effect_amounts[2] *= effect_level_legs
+
+            change = False
+            if armor_effect_descriptions[0] == armor_effect_descriptions[1]:
+                del armor_effect_descriptions[1]
+                armor_effect_amounts[0] += armor_effect_amounts[1]
+                del armor_effect_amounts[1]
+                change = True
+
+            if change:
+                if armor_effect_descriptions[0] == armor_effect_descriptions[1]:
+                    del armor_effect_descriptions[1]
+                    armor_effect_amounts[0] += armor_effect_amounts[1]
+                    del armor_effect_amounts[1]
+            else:
+                if armor_effect_descriptions[0] == armor_effect_descriptions[2]:
+                    del armor_effect_descriptions[2]
+                    armor_effect_amounts[0] += armor_effect_amounts[2]
+                    del armor_effect_amounts[2]
+                try:
+                    if armor_effect_descriptions[1] == armor_effect_descriptions[2]:
+                        del armor_effect_descriptions[2]
+                        armor_effect_amounts[1] += armor_effect_amounts[2]
+                        del armor_effect_amounts[2]
+                except IndexError:
+                    pass
+
+            for armor_effect in armor_effect_descriptions:
+                head_string = (head_string + armor_effect +
+                               str(abs(armor_effect_amounts[armor_effect_descriptions.index(armor_effect)])) + "\n")
+
+            head_string = head_string + "Current equips:"
+            return ['Head: {}'.format(Player.Inventory.current_equips['head'].name),
+                    'Chest: {}'.format(Player.Inventory.current_equips['chest'].name),
+                    'Legs: {}'.format(Player.Inventory.current_equips['legs'].name)], head_string
 
         @staticmethod
         def loot_drop(enemy):
@@ -952,8 +1158,6 @@ class Player(Character):
     def new_speed(self, change, amount=0):
         super(Player, self).new_speed(change, amount=amount)
 
-
-
     @staticmethod
     def alive_check():
         if player.current_hp <= 0:
@@ -963,7 +1167,7 @@ class Player(Character):
                 raise GameMasterError("Player Took Undocumented Damage")
 
     @staticmethod
-    def dead(killer, custom_text: str=''):
+    def dead(killer, custom_text: str = ''):
         Console.clear()
         if custom_text != '':
             print(custom_text)
@@ -1115,9 +1319,9 @@ def combat(enemy, location):
                         pretty_string_split = move.__name__.split("_")
                         pretty_string_joined = " ".join(pretty_string_split)
                         pretty_moves.append(pretty_string_joined)
-                    move = Console.interactive_choice(pretty_moves,
-                                                      "Click on the move you want to use\nAvailable Moves:",
-                                                      back_want=True, enemy=enemy, battle=True)
+                    move: str = Console.interactive_choice(pretty_moves,
+                                                           "Click on the move you want to use\nAvailable Moves:",
+                                                           back_want=True, enemy=enemy, battle=True)
                     if move is not None:
                         result: str = available_moves[pretty_moves.index(move)](player)
                     else:
@@ -1186,47 +1390,61 @@ def combat(enemy, location):
                                                                            back_want=True, battle=True,
                                                                            enemy=enemy, enumerated=True)
 
-                                def handle_slot(slot: str, joke_text: str=''):
+                                # noinspection PyUnresolvedReferences
+                                def handle_slot(slot: str, joke_text: str = ''):
                                     if slot == "head":
                                         slot_dict = (Player.Inventory.current_equips
-                                                     [slot].get_set_part_description
-                                                     (Player.Inventory.current_equips[slot].Head))
+                                                     [slot].parent.get_set_part_description
+                                                     (Player.Inventory.current_equips[slot]))
                                     elif slot == "chest":
                                         slot_dict = (Player.Inventory.current_equips
-                                                     [slot].get_set_part_description
-                                                     (Player.Inventory.current_equips[slot].Chest))
+                                                     [slot].parent.get_set_part_description
+                                                     (Player.Inventory.current_equips[slot]))
                                     elif slot == "legs":
                                         slot_dict = (Player.Inventory.current_equips
-                                                     [slot].get_set_part_description
-                                                     (Player.Inventory.current_equips[slot].Legs))
+                                                     [slot].parent.get_set_part_description
+                                                     (Player.Inventory.current_equips[slot]))
                                     else:
                                         raise WrongArgsError("Unknown slot type at handle_slot")
                                     slot_actions = []
                                     if not Player.Inventory.current_equips[slot] == Bare:
                                         slot_actions.append('Throw away')
                                     slot_actions.append('Unequip')
-                                    action = Console.interactive_choice(slot_actions,
-                                                                        slot_dict,
-                                                                        battle=True, enemy=enemy, back_want=True)
-                                    if action == "Unequip":
-                                        if not Player.Inventory.current_equips[slot]:
+                                    decision = Console.interactive_choice(slot_actions,
+                                                                          slot_dict,
+                                                                          battle=True, enemy=enemy, back_want=True)
+                                    if decision == "Unequip":
+                                        if not Player.Inventory.current_equips[slot] == Bare:
                                             Player.Inventory.unequip(slot)
                                         else:
                                             player.dead(None, custom_text=joke_text)
 
                                 # The equivalent of head
                                 if numbered_case == 0:
-                                    handle_slot('head', joke_text='You dismember your own head and die immediately')
+                                    if player.Inventory.current_equips['head'] == Bare:
+                                        handle_slot('head', joke_text='You dismember your own head and die immediately')
+                                    else:
+                                        handle_slot('head')
 
                                 # The equivalent of chest
                                 elif numbered_case == 1:
-                                    handle_slot('chest',
-                                                joke_text='How do you even manage to dismember your whole torso?!')
+                                    if player.Inventory.current_equips['chest'] == Bare:
+                                        handle_slot('chest',
+                                                    joke_text='How do you even manage to dismember your whole torso?!')
+                                    else:
+                                        handle_slot('chest')
+
                                 # The equivalent of legs
                                 elif numbered_case == 2:
-                                    handle_slot('legs',
-                                                joke_text='You dismember your legs and slowly die from blood loss')
-                                #
+                                    if player.Inventory.current_equips['legs'] == Bare:
+                                        handle_slot('legs',
+                                                    joke_text='You dismember your legs and slowly die from blood loss')
+                                    else:
+                                        handle_slot('legs')
+
+                                # Back
+                                elif numbered_case is None:
+                                    break
 
                 elif action == "inspect":
                     inspectable_objects = ['inventory items', 'yourself', '{}'.format(player.current_enemy.name)]
@@ -1246,21 +1464,23 @@ def combat(enemy, location):
 
                     elif to_inspect == "inventory items":
                         head_string, inventory_items = player.Inventory.view()
+                        raw_inventory_items = player.Inventory.view_raw_names()
                         item_to_inspect = Console.interactive_choice(inventory_items, head_string,
                                                                      battle=True, enemy=enemy, back_want=True)
 
                         # Removing integer amounts and whitespace from the string so that it can be used
-                        item_to_inspect = item_to_inspect.replace(" ", "")
-                        no_int_item_to_inspect = ""
-                        for letter in item_to_inspect:
-                            if not isint(letter):
-                                no_int_item_to_inspect = no_int_item_to_inspect + letter
+                        try:
+                            description = (raw_inventory_items
+                                           [inventory_items.index(item_to_inspect)]
+                                           .parent.inspect(raw_inventory_items
+                                                           [inventory_items.index(item_to_inspect)]))
+                        except AttributeError:
+                            description = (raw_inventory_items
+                                           [inventory_items.index(item_to_inspect)]
+                                           .inspect())
                         # Eval isn't accounted for in my IDE's styling guide
                         # noinspection PyUnusedLocal
-                        # Adding so parenthesis to make the item callable through eval
-                        final_item_to_inspect = no_int_item_to_inspect + ".inspect()"
-                        print(final_item_to_inspect)
-                        Console.interactive_choice(["back"], eval("eval(final_item_to_inspect)"),
+                        Console.interactive_choice(["back"], description,
                                                    battle=True, enemy=enemy)
 
                 if action == "help":
@@ -1277,7 +1497,6 @@ def combat(enemy, location):
                                                 " and 25% of the caster's maximum hp"
                             },
                             'damaging moves': {
-
 
                             },
                         },
@@ -1309,24 +1528,25 @@ def combat(enemy, location):
                     # Creates a menu which makes it possible to view the different levels of the above dictionary
                     # The while loops create the functionality to only go back one level
                     while True:
-                        help_with = Console.interactive_choice(list(help_options.keys()),
-                                                               'What sort of thing do you want to know more about?',
-                                                               back_want=True, battle=True, enemy=enemy)
+                        help_with: str = Console.interactive_choice(list(help_options.keys()),
+                                                                    'What sort of thing do you want to know more '
+                                                                    'about?',
+                                                                    back_want=True, battle=True, enemy=enemy)
                         if help_with is None:
                             break
                         while True:
-                            subcategory = Console.interactive_choice(list(help_options[help_with].keys()),
-                                                                     'Which one of these categories '
-                                                                     'do you want to know more about?',
-                                                                     back_want=True, battle=True, enemy=enemy)
+                            subcategory: str = Console.interactive_choice(list(help_options[help_with].keys()),
+                                                                          'Which one of these categories '
+                                                                          'do you want to know more about?',
+                                                                          back_want=True, battle=True, enemy=enemy)
                             if subcategory is None:
                                 break
                             while True:
-                                final_type = Console.interactive_choice(list(help_options[help_with]
-                                                                             [subcategory].keys()),
-                                                                        'Which one of these do you want to know more '
-                                                                        'about?',
-                                                                        battle=True, enemy=enemy, back_want=True)
+                                final_type: str = Console.interactive_choice(list(help_options[help_with]
+                                                                                  [subcategory].keys()),
+                                                                             'Which one of these do you want to know '
+                                                                             ' more about?',
+                                                                             battle=True, enemy=enemy, back_want=True)
                                 if final_type is None:
                                     break
                                 Console.interactive_choice(["back"], help_options[help_with][subcategory]
@@ -1383,7 +1603,7 @@ def windows_version_handling():
           ' typing "other" although the game might not play well')
 
     while True:
-        version = input("Please type your version\n>>> ")
+        version = "windows 8"  # input("Please type your version\n>>> ")
         version = version.lower()
         if version in accepted_windows_versions:
             if version == 'windows 8':
