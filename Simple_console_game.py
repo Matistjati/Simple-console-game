@@ -5,8 +5,7 @@ import random
 import time
 import os
 import win32gui
-from typing import Any, Union
-
+import platform
 import pynput
 
 
@@ -989,6 +988,27 @@ class Player(Character):
             temp_strength = player.calculate_stat_change('strength', player.strength)
 
         @staticmethod
+        def get_plural(words):
+            # Some things shouldn't have s at the end, even in plural. Example: golds
+            no_s_at_end_exceptions = ('Gold')
+            # Dicts are only used in the case of the player inventory
+            if isinstance(words, dict):
+                plural_words = []
+                for item in words:
+                    if words[item] > 1:
+                        if item.name[-1] == "h" or item.name[-1] == "H":
+                            plural_words.append('{} {}es'.format(words[item], item.name))
+                        elif item.name not in no_s_at_end_exceptions:
+                            plural_words.append('{} {}s'.format(words[item], item.name))
+                        else:
+                            plural_words.append('{} {}'.format(words[item], item.name))
+                    else:
+                        plural_words.append('{} {}'.format(words[item], item.name))
+                return plural_words
+            else:
+                pass
+
+        @staticmethod
         def unequip(slot: str):
             if player.Inventory.current_equips[slot] != Bare:
                 try_unequip = Player.Inventory.add_item(player.Inventory.current_equips[slot])
@@ -1004,7 +1024,39 @@ class Player(Character):
                     else:
                         raise WrongArgsError("slot != head, chest or legs")
             else:
-                print('You have nothing equipped in the {} slot'.format(slot))
+                raise GameMasterError('Unhandled case of trying to unequip bare in the {} slot'.format(slot))
+
+        @staticmethod
+        def throw_away(item, enemy):
+            # Method for removing an item from the player's inventory
+            # Checking if the item actually exists, otherwise raises an exception
+            if item in player.Inventory.items:
+                if player.Inventory.items[item] == 0:
+                    # Raising an exception if there exists an item that amounts to 0
+                    raise GameMasterError("An item of amount 0 was found in inventory")
+                elif player.Inventory.items[item] == 1:
+                    # If only one of the item exists, check if the player is sure
+                    # If the player does want to throw it away, it does so and informs the player via the action log
+                    confirmation = Console.interactive_choice(['Yes', 'No'],
+                                                              ('Are you sure you want to throw away the {} ?'.
+                                                               format(item.name)),
+                                                              battle=True, enemy=enemy)
+                    if confirmation == "Yes":
+                        del player.Inventory.items[item]
+                        GameMaster.action_log.append("You threw away the {}".format(item.name))
+                        return "success"
+                    elif confirmation == "No":
+                        return
+                else:
+                    amount = Console.interactive_choice(['all', 'specific amount'],
+                                                        'How many do you want to throw away?',
+                                                        battle=True, enemy=enemy, back_want=True)
+                    if amount == 'all':
+                        GameMaster.action_log.append("You threw away {")
+                        del player.Inventory.items[item]
+
+            else:
+                raise GameMasterError("Trying to remove the item {} that isn't in the inventory".format(item))
 
         @staticmethod
         def add_item(item, amount: int = 1):
@@ -1026,22 +1078,9 @@ class Player(Character):
         @staticmethod
         def view():
             # Returns a list of your current items and an informative string that will not be clickable
-            # Some things shouldn't have s at the end, even in plural. Example: golds
-            no_s_at_end_exceptions = ('Gold')
             head_string = "You have:"
-            item_list = []
             # Formatting the items to be grammatically proper
-            for item in Player.Inventory.items:
-                if Player.Inventory.items[item] > 1:
-                    if item.name[-1] == "h" or item.name[-1] == "H":
-                        item_list.append('{} {}es'.format(Player.Inventory.items[item], item.name))
-                    elif item.name not in no_s_at_end_exceptions:
-                        item_list.append('{} {}s'.format(Player.Inventory.items[item], item.name))
-                    else:
-                        item_list.append('{} {}'.format(Player.Inventory.items[item], item.name))
-                else:
-                    item_list.append('{} {}'.format(Player.Inventory.items[item], item.name))
-
+            item_list = player.Inventory.get_plural(player.Inventory.items)
             # Returning the items in the inventory
             return head_string, item_list
 
@@ -1445,9 +1484,32 @@ def combat(enemy, location):
                                 # Back
                                 elif numbered_case is None:
                                     break
+                        elif case_inventory == "Items":
+                            head_string, inventory_items = player.Inventory.view()
+                            raw_inventory_items = player.Inventory.view_raw_names()
+                            item_to_inspect = Console.interactive_choice(inventory_items, head_string,
+                                                                         battle=True, enemy=enemy, back_want=True)
+
+                            # Removing integer amounts and whitespace from the string so that it can be used
+                            print(item_to_inspect)
+                            if item_to_inspect is None:
+                                print("horse")
+                            try:
+                                description = (raw_inventory_items
+                                               [inventory_items.index(item_to_inspect)]
+                                               .parent.inspect(raw_inventory_items
+                                                               [inventory_items.index(item_to_inspect)]))
+                            except AttributeError:
+                                if item_to_inspect is not None:
+                                    description = (raw_inventory_items
+                                                   [inventory_items.index(item_to_inspect)]
+                                                   .inspect())
+                            if item_to_inspect is not None:
+                                Console.interactive_choice(["back"], description,
+                                                           battle=True, enemy=enemy, back_want=True)
 
                 elif action == "inspect":
-                    inspectable_objects = ['inventory items', 'yourself', '{}'.format(player.current_enemy.name)]
+                    inspectable_objects = ['yourself', '{}'.format(player.current_enemy.name)]
                     to_inspect = Console.interactive_choice(inspectable_objects, ('Which one of these do you '
                                                                                   'want to inspect?'),
                                                             enemy=enemy, battle=True, back_want=True)
@@ -1461,27 +1523,6 @@ def combat(enemy, location):
                     elif to_inspect == "{}".format(player.current_enemy.name):
                         Console.interactive_choice(["I'm done"], player.current_enemy.inspect(enemy), enemy=enemy,
                                                    battle=True)
-
-                    elif to_inspect == "inventory items":
-                        head_string, inventory_items = player.Inventory.view()
-                        raw_inventory_items = player.Inventory.view_raw_names()
-                        item_to_inspect = Console.interactive_choice(inventory_items, head_string,
-                                                                     battle=True, enemy=enemy, back_want=True)
-
-                        # Removing integer amounts and whitespace from the string so that it can be used
-                        try:
-                            description = (raw_inventory_items
-                                           [inventory_items.index(item_to_inspect)]
-                                           .parent.inspect(raw_inventory_items
-                                                           [inventory_items.index(item_to_inspect)]))
-                        except AttributeError:
-                            description = (raw_inventory_items
-                                           [inventory_items.index(item_to_inspect)]
-                                           .inspect())
-                        # Eval isn't accounted for in my IDE's styling guide
-                        # noinspection PyUnusedLocal
-                        Console.interactive_choice(["back"], description,
-                                                   battle=True, enemy=enemy)
 
                 if action == "help":
                     # Different categories you have to traverse through to reach desired information
@@ -1597,16 +1638,12 @@ def combat(enemy, location):
 
 
 def windows_version_handling():
-    accepted_windows_versions = ('windows 8', 'windows 10', 'other')
-    print("Welcome!\nI see this is your first time running this game.\nSo far, this game is only supported on "
-          'windows 10 and windows 8.\nPlease type in which one of these you are using.\nIf it is antoher version, try'
-          ' typing "other" although the game might not play well')
+    accepted_windows_versions = ('Windows-8', 'Windows-10', 'Windows-8.1')
 
     while True:
-        version = "windows 8"  # input("Please type your version\n>>> ")
-        version = version.lower()
+        version = platform.platform(terse=True)  # input("Please type your version\n>>> ")
         if version in accepted_windows_versions:
-            if version == 'windows 8':
+            if version == 'Windows-8.1' or version == 'Windows-8':
                 GameMaster.console_location_x = 0
                 GameMaster.console_location_y = 0
                 GameMaster.font_size_x = 8
@@ -1614,7 +1651,7 @@ def windows_version_handling():
                 GameMaster.x_to_console = 9
                 GameMaster.y_to_console = 32
                 break
-            elif version == 'windows 10':
+            elif version == 'Windows-10':
                 GameMaster.console_location_x = -7
                 GameMaster.console_location_y = 0
                 GameMaster.font_size_x = 8
@@ -1622,6 +1659,11 @@ def windows_version_handling():
                 GameMaster.x_to_console = 1
                 GameMaster.y_to_console = 30
                 break
+            else:
+                print("No instructions for this os")
+                input()
+        else:
+            raise GameMasterError("Unsopported OS")
 
 
 if __name__ == '__main__':
