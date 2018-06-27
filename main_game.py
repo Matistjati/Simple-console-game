@@ -8,7 +8,9 @@ import win32gui
 import pynput
 import sys
 import ctypes
-import atexit
+import colorama
+import logging
+import json
 
 
 def closest_match(value, array):
@@ -29,16 +31,6 @@ def isint(variable_to_test):
         return False
 
 
-class WrongArgsError(Exception):
-    # Custom exception to be raised when an unsupported argument is passed
-    pass
-
-
-class GameMasterError(Exception):
-    # Custom exception to be raised when an error related to the game master is found
-    pass
-
-
 class Console:
     # A class for collecting all methods related to the console
     @staticmethod
@@ -55,7 +47,7 @@ class Console:
         os.system("mode con cols=120 lines=30")
 
     @staticmethod
-    def print_with_layout(enemy=None, extra_text=None, battle=False):
+    def print_with_layout(extra_text=None, battle=False):
         # Method for printing text along with other things, for example a healthbar
         # "Other things" will remain at the same location, even if there's other text in the same line
         # If battle is true, enemy must also be supplied
@@ -84,25 +76,25 @@ class Console:
         line_8 = lines_in[7]
         line_9 = lines_in[8]
         line_10 = lines_in[9]
-        line_11 = lines_in[11]
-        line_12 = lines_in[12]
-        line_13 = lines_in[13]
-        line_14 = lines_in[14]
-        line_15 = lines_in[15]
-        line_16 = lines_in[16]
-        line_17 = lines_in[17]
-        line_18 = lines_in[18]
-        line_19 = lines_in[19]
-        line_20 = lines_in[20]
-        line_21 = lines_in[21]
-        line_22 = lines_in[22]
-        line_23 = lines_in[23]
-        line_24 = lines_in[24]
-        line_25 = lines_in[25]
-        line_26 = lines_in[26]
-        line_27 = lines_in[27]
-        line_28 = lines_in[28]
-        line_29 = lines_in[29]
+        line_11 = lines_in[10]
+        line_12 = lines_in[11]
+        line_13 = lines_in[12]
+        line_14 = lines_in[13]
+        line_15 = lines_in[14]
+        line_16 = lines_in[15]
+        line_17 = lines_in[16]
+        line_18 = lines_in[17]
+        line_19 = lines_in[18]
+        line_20 = lines_in[19]
+        line_21 = lines_in[20]
+        line_22 = lines_in[21]
+        line_23 = lines_in[22]
+        line_24 = lines_in[23]
+        line_25 = lines_in[24]
+        line_26 = lines_in[25]
+        line_27 = lines_in[26]
+        line_28 = lines_in[27]
+        line_29 = lines_in[28]
 
         # Declaring ASCII characters for the healthbars and the action log
         standing_line = chr(124)
@@ -124,10 +116,15 @@ class Console:
             enemy_bot_healthbar = ' ' * (enemy_healthbar_spacing - len(line_8)) + " " + top_line * 10
 
             player_top_healthbar = ' ' * (player_healthbar_spacing - len(line_22)) + " " + "_" * 10 + player.name
-            enemy_top_healthbar = ' ' * (enemy_healthbar_spacing - len(line_6)) + " " + "_" * 10 + enemy.name
+            if line_6 == '*{}buff{}'.format(colorama.Fore.LIGHTCYAN_EX, colorama.Fore.RESET):
+                enemy_top_healthbar = (' ' * (enemy_healthbar_spacing - len(line_6) + 10)
+                                       + " " + "_" * 10 + player.current_enemy.name)
+            else:
+                enemy_top_healthbar = (' ' * (enemy_healthbar_spacing - len(line_6))
+                                       + " " + "_" * 10 + player.current_enemy.name)
 
             player_hp = int((player.current_hp / player.max_hp) * 10)
-            enemy_hp = int((enemy.current_hp / enemy.max_hp) * 10)
+            enemy_hp = int((player.current_enemy.current_hp / player.current_enemy.max_hp) * 10)
 
             player_mid_healthbar = (' ' * (player_healthbar_spacing - len(line_23)) + standing_line + block * player_hp
                                     + " " * (10 - player_hp) + standing_line +
@@ -135,7 +132,7 @@ class Console:
 
             enemy_mid_healthbar = (' ' * (enemy_healthbar_spacing - len(line_7)) + standing_line +
                                    block * enemy_hp + " " * (10 - enemy_hp) + standing_line +
-                                   '{}/{} hp'.format(enemy.current_hp, enemy.max_hp))
+                                   '{}/{} hp'.format(player.current_enemy.current_hp, player.current_enemy.max_hp))
 
             log_lines = 4
             max_spacing = max(
@@ -207,7 +204,7 @@ class Console:
             print(lines[i])
 
     @staticmethod
-    def interactive_choice(cases: list, head_string: str, back_want: bool = False, enemy: object = None,
+    def interactive_choice(cases: list, head_string: str, back_want: bool = False,
                            battle: bool = False, enumerated: bool = False):
         # This method makes use of the print_with_layout method in order to make some printed objects clickable
         # Cases is a list of the clickable strings
@@ -220,9 +217,6 @@ class Console:
             string_output = head_string
             for action in cases:
                 string_output = string_output + "\n*" + action
-
-            if back_want:
-                string_output = string_output + "\n*back"
 
             return string_output
 
@@ -238,22 +232,18 @@ class Console:
         # Some lines are not clickable
         uninteractive_lines = head_string.count("\n") + 1
 
+        # Adding a back option if desired
+        if back_want and "back" not in cases:
+            cases.append("back")
+
         # Formatting the string to be printed
         string_out = move_to_string()
 
-        # Raising an exception if the console's heights and widths has not been defined
-        if console_x_border == 0 or console_y_border == 0 or font_size_x == 0 or font_size_y == 0:
-            raise GameMasterError("No defined console size values")
-
         # Battle layout or not
         if battle:
-            Console.print_with_layout(enemy=enemy, extra_text=string_out, battle=True)
+            Console.print_with_layout(extra_text=string_out, battle=True)
         else:
             Console.print_with_layout(extra_text=string_out)
-
-        # Adding a back option if desired
-        if back_want:
-            cases.append("back")
 
         # Calculating the areas which are clickable
         # First two x values, then two y values in the dict
@@ -585,6 +575,7 @@ class Bare(Wearable):
         def __init__(self, parent):
             self.parent = parent
 
+        set_part = "head"
         description = "Just a plain old ugly head"
         item_type = "wearable"
         name = "Bare"
@@ -594,13 +585,14 @@ class Bare(Wearable):
         defense = 1
         description_good = 'Even though your face looks terrible, people are distracted by your glorious body,'
         effect_amount_good = 0
-        description_bad = 'Your face looks terrible, it will make negotiating harder\n'
+        description_bad = 'Your face looks terrible, it will make negotiating harder'
         effect_amount_bad = -2
 
     class Chest:
         def __init__(self, parent):
             self.parent = parent
 
+        set_part = "chest"
         description = "Just a plain old torso"
         item_type = "wearable"
         name = "Bare"
@@ -617,6 +609,7 @@ class Bare(Wearable):
         def __init__(self, parent):
             self.parent = parent
 
+        set_part = "legs"
         description = "What humans use to walk"
         item_type = "wearable"
         name = "Bare"
@@ -626,7 +619,7 @@ class Bare(Wearable):
         defense = 2
         description_good = 'Not wearing pants only seems to be in your flavor with such a body'
         effect_amount_good = 1
-        description_bad = 'oh please, at least put some pants on'
+        description_bad = 'Oh please, at least put some pants on'
         effect_amount_bad = -7
 
     @staticmethod
@@ -680,6 +673,7 @@ class Leaves(Wearable):
         def __init__(self, parent):
             self.parent = parent
 
+        set_part = "head"
         description = "A pretty leaf crown"
         item_type = "wearable"
         name = "leaf crown"
@@ -696,6 +690,7 @@ class Leaves(Wearable):
         def __init__(self, parent):
             self.parent = parent
 
+        set_part = "chest"
         description = "A well-made leaf chestmail"
         item_type = "wearable"
         name = "leaf chestmail"
@@ -712,6 +707,7 @@ class Leaves(Wearable):
         def __init__(self, parent):
             self.parent = parent
 
+        set_part = "legs"
         description = "Just some leafs to cover the private parts. The leggings part was a lie"
         item_type = "wearable"
         name = "leaf leggings"
@@ -762,6 +758,9 @@ Gold = Item('Gold', 0, 1, 'valuable', 0, 'The foundation of modern society.. or 
 
 class GameMaster:
     # This is the class where we store data which do not make sense to contain in the player class
+    settings = {}
+    Bare_set = (Bare.Head, Bare.Chest, Bare.Legs)
+    no_s_at_end_exceptions = ('Gold',)
     game_name = "Please select a game name"
     last_damage_player = ""
     vowels = ("a", "o", "u", "e", "i")
@@ -802,7 +801,7 @@ class Character:
                 self.Statuses[status]['duration'] = duration
                 self.Statuses[status]['amount'] = effect_amount
         else:
-            raise WrongArgsError("Unknown Effect: {} at apply_effect".format(status))
+            error_logger.error("Unknown Effect: {}".format(status))
 
     awareness_levels = {95: "paranoid", 90: "on guard", 80: "alert",
                         60: "drowsy", 30: "distracted", 20: "panicking"}
@@ -849,9 +848,9 @@ class Character:
             if amount != 0 and 100 >= amount >= 0:
                 self.awareness = amount
             else:
-                raise WrongArgsError("Invalid custom awareness at new_awareness")
+                error_logger.error("Invalid custom awareness:{}".format(amount))
         else:
-            raise WrongArgsError("Unknown change type at new_awareness")
+            error_logger.error("Unknown awareness change type{}".format(change))
 
     speed_levels = {90: "fast as fuck boiii", 80: "fast", 70: "fleet",
                     40: "tired", 30: "sluggish", 20: "injured"}
@@ -898,9 +897,9 @@ class Character:
             if amount != 0 and 100 >= amount >= 0:
                 self.speed = amount
             else:
-                raise WrongArgsError("Invalid custom speed at new_speed")
+                error_logger.error("Invalid custom speed{}".format(amount))
         else:
-            raise WrongArgsError("Unknown change type at new_speed")
+            error_logger.error("Unknown speed change type{}".format(change))
 
     def deal_damage(self, damage):
         self.current_enemy.current_hp -= damage
@@ -965,15 +964,94 @@ class Character:
                      temp_strength, gender_pronoun_2.capitalize(), self.awareness_level(temp_awareness),
                      self.speed_level(temp_speed), current_states))
 
+    # noinspection PyUnresolvedReferences
     def calculate_stat_change(self, stat, stat_value):
         for status in self.Statuses:
             if supported_Statuses[status]['apply_type'] == stat:
                 stat_value += player.Statuses[status]['amount']
             elif supported_Statuses[status]['apply_type'] == stat:
                 stat_value -= player.Statuses[status]['amount']
-        for armor_piece in player.Inventory.current_equips:
-            if player.Inventory.current_equips[armor_piece].change_type == stat: # last
 
+        # This code is messy, let's pray that it doesn't break
+        effect_level_head = 1
+        effect_level_chest = 1
+        effect_level_legs = 1
+        if player.Inventory.current_equips['head'].parent == player.Inventory.current_equips['chest'].parent:
+            effect_level_head += 1
+            effect_level_chest += 1
+        if player.Inventory.current_equips['head'].parent == player.Inventory.current_equips['legs'].parent:
+            effect_level_head += 1
+            effect_level_legs += 1
+        if player.Inventory.current_equips['chest'].parent == player.Inventory.current_equips['legs'].parent:
+            effect_level_legs += 1
+            effect_level_chest += 1
+        if effect_level_chest == 3:
+            effect_level_chest += 2
+        if effect_level_head == 3:
+            effect_level_head += 2
+        if effect_level_legs == 3:
+            effect_level_legs += 2
+
+        change_types = []
+        armor_effect_amounts = []
+        for set_part in player.Inventory.current_equips:
+            if set_part == "head":
+                change_type, amount, __ = (player.Inventory.current_equips[set_part].parent
+                                           .get_set_effect(player, head=True))
+            elif set_part == "chest":
+                change_type, amount, __ = (player.Inventory.current_equips[set_part].parent
+                                           .get_set_effect(player, chest=True))
+            elif set_part == "legs":
+                change_type, amount, __ = (player.Inventory.current_equips[set_part].parent
+                                           .get_set_effect(player, legs=True))
+            else:
+                error_logger.error("A key dict which does not belong there is in current_equips: {}"
+                                   .format(player.Inventory.current_equips))
+                amount = 0
+                change_type = ""
+
+            change_types.append(change_type)
+            armor_effect_amounts.append(amount)
+
+        armor_effect_amounts[0] *= effect_level_head
+        armor_effect_amounts[1] *= effect_level_chest
+        armor_effect_amounts[2] *= effect_level_legs
+
+        change = False
+        if change_types[0] == change_types[1]:
+            del change_types[1]
+            armor_effect_amounts[0] += armor_effect_amounts[1]
+            del armor_effect_amounts[1]
+            change = True
+
+        if change:
+            if change_types[0] == change_types[1]:
+                del change_types[1]
+                armor_effect_amounts[0] += armor_effect_amounts[1]
+                del armor_effect_amounts[1]
+        else:
+            if change_types[0] == change_types[2]:
+                del change_types[2]
+                armor_effect_amounts[0] += armor_effect_amounts[2]
+                del armor_effect_amounts[2]
+            try:
+                if change_types[1] == change_types[2]:
+                    del change_types[2]
+                    armor_effect_amounts[1] += armor_effect_amounts[2]
+                    del armor_effect_amounts[2]
+            except IndexError:
+                pass
+
+        for change_type in change_types:
+            if change_type == stat:
+                stat_value += armor_effect_amounts[change_types.index(change_type)]
+
+        if stat_value > 100:
+            return 100
+        elif stat_value < -100:
+            return -100
+        else:
+            return stat_value
 
 
 class Player(Character):
@@ -996,10 +1074,9 @@ class Player(Character):
         max_spaces = 10
         current_equips = {'head': Leaves.Head, 'chest': Leaves.Chest, 'legs': Leaves.Legs}
 
+        # noinspection PyUnresolvedReferences
         @staticmethod
         def get_plural(words):
-            # Some things shouldn't have s at the end, even in plural. Example: golds
-            no_s_at_end_exceptions = ('Gold', )
             # Dicts are only used in the case of the player inventory
             if isinstance(words, dict):
                 plural_words = []
@@ -1007,7 +1084,8 @@ class Player(Character):
                     if words[item] > 1:
                         if item.name[-1] == "h" or item.name[-1] == "H":
                             plural_words.append('{} {}es'.format(words[item], item.name))
-                        elif item.name not in no_s_at_end_exceptions:
+                        # Some things shouldn't have s at the end, even in plural. Example: golds
+                        elif item.name not in GameMaster.no_s_at_end_exceptions:
                             plural_words.append('{} {}s'.format(words[item], item.name))
                         else:
                             plural_words.append('{} {}'.format(words[item], item.name))
@@ -1015,7 +1093,25 @@ class Player(Character):
                         plural_words.append('{} {}'.format(words[item], item.name))
                 return plural_words
             else:
-                pass
+                item = words
+                if isinstance(item, type):
+                    if item.name[-1] == "h" or item.name[-1] == "H":
+                        final_word = ('{}es'.format(item.name))
+                    # Some things shouldn't have s at the end, even in plural. Example: golds is wrong
+                    elif item.name not in GameMaster.no_s_at_end_exceptions:
+                        final_word = ('{}s'.format(item.name))
+                    else:
+                        final_word = ('{}'.format(item.name))
+                else:
+                    if item[-1] == "h" or item[-1] == "H":
+                        final_word = ('{}es'.format(item))
+                        # Some things shouldn't have s at the end, even in plural. Example: golds
+                    elif item not in GameMaster.no_s_at_end_exceptions:
+                        final_word = ('{}s'.format(item))
+                    else:
+                        final_word = ('{}'.format(item))
+
+                return final_word
 
         @staticmethod
         def unequip(slot: str):
@@ -1031,42 +1127,83 @@ class Player(Character):
                     elif slot == "legs":
                         player.Inventory.current_equips[slot] = Bare.Legs
                     else:
-                        raise WrongArgsError("slot != head, chest or legs")
+                        error_logger.error("slot at unequip={}".format(slot))
             else:
-                raise GameMasterError('Unhandled case of trying to unequip bare in the {} slot'.format(slot))
+                error_logger.error('Unhandled case of trying to unequip bare in the {} slot'.format(slot))
 
         @staticmethod
-        def throw_away(item, enemy):
+        def throw_away(item):
             # Method for removing an item from the player's inventory
-            # Checking if the item actually exists, otherwise raises an exception
             if item in player.Inventory.items:
-                if player.Inventory.items[item] == 0:
-                    # Raising an exception if there exists an item that amounts to 0
-                    raise GameMasterError("An item of amount 0 was found in inventory")
+                # Checking if the item actually "exists", otherwise deletes it and logs it
+                if player.Inventory.items[item] <= 0:
+                    del player.Inventory.items[item]
+                    error_logger.error("An item of amount {} was found in inventory at throw_away".format(item))
                 elif player.Inventory.items[item] == 1:
                     # If only one of the item exists, check if the player is sure
                     # If the player does want to throw it away, it does so and informs the player via the action log
                     confirmation = Console.interactive_choice(['Yes', 'No'],
-                                                              ('Are you sure you want to throw away the {} ?'.
+                                                              ('Are you sure that you want to throw away the {} ?'.
                                                                format(item.name)),
-                                                              battle=True, enemy=enemy)
+                                                              battle=True)
                     if confirmation == "Yes":
                         del player.Inventory.items[item]
                         GameMaster.action_log.append("You threw away the {}".format(item.name))
-                        return "success"
+                        return "all"
                     elif confirmation == "No":
                         return
+                    else:
+                        error_logger.error('Unknown case "{}"'.format(confirmation))
+
                 else:
                     amount = Console.interactive_choice(['all', 'specific amount'],
                                                         'How many do you want to throw away?',
-                                                        battle=True, enemy=enemy, back_want=True)
+                                                        battle=True, back_want=True)
                     if amount == 'all':
-                        GameMaster.action_log.append("You threw away {")
-                        del player.Inventory.items[item]
+                        confirmation = (Console.interactive_choice
+                                        (['Yes', 'No'], ('Are you sure that you want to throw away all of the {} ?'.
+                                                         format(item.name)), battle=True))
+
+                        if confirmation == "Yes":
+                            GameMaster.action_log.append("You threw away all the {}".format(item.name))
+                            del player.Inventory.items[item]
+                            return 'all'
+                        elif confirmation == "No":
+                            return
+                        else:
+                            error_logger.error('Unknown case "{}"'.format(confirmation))
+                    elif amount == 'specific amount':
+                        if item.name in GameMaster.no_s_at_end_exceptions:
+                            head_string = "How much of the {} do you want to throw away?".format(player.Inventory.
+                                                                                                 get_plural(item.name))
+                        else:
+                            head_string = "How many of the {} do you want to throw away?".format(player.Inventory.
+                                                                                                 get_plural(item.name))
+
+                        while True:
+                            while True:
+                                Console.clear()
+                                amount_to_throw_away: int = input(head_string + "\n"
+                                                                  "If you do not want to throw away any, enter 0\n")
+                                if isint(amount_to_throw_away):
+                                    amount_to_throw_away = int(amount_to_throw_away)
+                                    break
+                            if amount_to_throw_away >= player.Inventory.items[item]:
+                                GameMaster.action_log.append("You threw away all the {}".format(item.name))
+                                del player.Inventory.items[item]
+                                return 'all'
+                            elif amount_to_throw_away <= 0:
+                                return
+                            else:
+                                (GameMaster.action_log.append("You threw away {} {}"
+                                                              .format(amount_to_throw_away,
+                                                                      player.Inventory.get_plural(item.name))))
+                                player.Inventory.items[item] -= amount_to_throw_away
+                                return
 
             elif item in player.Inventory.current_equips:
                 # You can't throw away your own body
-                if not isinstance(player.Inventory.current_equips[item], Bare):
+                if player.Inventory.current_equips[item] in GameMaster.Bare_set:
                     if item == "head":
                         player.Inventory.current_equips[item] = Bare.Head
                     elif item == "chest":
@@ -1075,7 +1212,8 @@ class Player(Character):
                         player.Inventory.current_equips[item] = Bare.Legs
 
             else:
-                raise GameMasterError("Trying to remove the item {} that isn't in the inventory".format(item))
+                error_logger.error("Trying to remove the item {}"
+                                   " that isn't in the inventory: {}".format(item, player.Inventory.items))
 
         @staticmethod
         def add_item(item, amount: int = 1):
@@ -1094,10 +1232,35 @@ class Player(Character):
             else:
                 Player.Inventory.items[item] = amount
 
+        # Method for equipping an armor
+        @staticmethod
+        def equip(item):
+            # Checking if the item is an armor piece
+            if hasattr(item, "parent"):
+                # Checking that it exists
+                if not player.Inventory.items[item] <= 0:
+                    # noinspection PyUnresolvedReferences
+                    if player.Inventory.current_equips[item.set_part].parent == Bare:
+                        player.Inventory.current_equips[item.set_part] = item
+                        GameMaster.action_log.append("You equip a {}".format(item.name))
+                        if player.Inventory.items[item] == 1:
+                            del player.Inventory.items[item]
+                        else:
+                            player.Inventory.items[item] -= 1
+                        return "success"
+                else:
+                    error_logger.error("{} {} found in inventory".format(player.Inventory.items[item], item.name))
+                    del player.Inventory.items[item]
+            else:
+                error_logger.error("trying to equip {}, which does not have a parent attribute".format(item))
+
         @staticmethod
         def view():
             # Returns a list of your current items and an informative string that will not be clickable
-            head_string = "You have:"
+            if len(player.Inventory.items) != 0:
+                head_string = "You have:"
+            else:
+                head_string = "You have nothing at all, you poor peasant"
             # Formatting the items to be grammatically proper
             item_list = player.Inventory.get_plural(player.Inventory.items)
             # Returning the items in the inventory
@@ -1151,7 +1314,10 @@ class Player(Character):
                     __, amount, description = (player.Inventory.current_equips[set_part].parent
                                                .get_set_effect(player, legs=True))
                 else:
-                    raise GameMasterError("Something is not right in current_equips")
+                    error_logger.error("A key dict which does not belong there is in current_equips: {}"
+                                       .format(player.Inventory.current_equips))
+                    description = "Something has gone terribly wrong and will be fixed soon"
+                    amount = 0
 
                 armor_effect_descriptions.append(description)
                 armor_effect_amounts.append(amount)
@@ -1222,7 +1388,7 @@ class Player(Character):
             if GameMaster.last_damage_player != "":
                 player.dead(GameMaster.last_damage_player)
             else:
-                raise GameMasterError("Player Took Undocumented Damage")
+                error_logger.error("Player Took Undocumented Damage")
 
     @staticmethod
     def dead(killer, custom_text: str = ''):
@@ -1243,7 +1409,7 @@ class Player(Character):
             else:
                 return "already_unlocked"
         else:
-            raise WrongArgsError("unknown move: {} at add_move".format(new_move.__name__))
+            error_logger.error("unknown move: {} at add_move".format(new_move.__name__))
 
 
 class Enemy(Character):
@@ -1372,7 +1538,7 @@ def combat(enemy, location):
                 if len(available_moves) == 0:
                     Console.interactive_choice(["back"],
                                                'You Do not Have any {} Moves Yet. Please Try Something Else'.
-                                               format(move_type), battle=True, enemy=enemy)
+                                               format(move_type), battle=True)
                 else:
                     pretty_moves = []
                     for move in available_moves:
@@ -1381,171 +1547,83 @@ def combat(enemy, location):
                         pretty_moves.append(pretty_string_joined)
                     move: str = Console.interactive_choice(pretty_moves,
                                                            "Click on the move you want to use\nAvailable Moves:",
-                                                           back_want=True, enemy=enemy, battle=True)
+                                                           back_want=True, battle=True)
                     if move is not None:
-                        result: str = available_moves[pretty_moves.index(move)](player)
+                        move_result: str = available_moves[pretty_moves.index(move)](player)
                     else:
-                        result = None
-                    if result is not None:
-                        GameMaster.action_log.append(result)
+                        move_result = None
+                    if move_result is not None:
+                        GameMaster.action_log.append(move_result)
                         return True
 
             Console.clear()
-            supported_head_moves = ['defend', 'heal', 'attack', 'debuff', 'buff',
-                                    'use item', 'inspect', 'help', 'view and edit your inventory']
+            supported_head_moves = ['{}defend{}'.format(colorama.Style.DIM, colorama.Style.NORMAL),
+                                    '{}heal{}'.format(colorama.Fore.LIGHTYELLOW_EX, colorama.Fore.RESET),
+                                    '{}attack{}'.format(colorama.Fore.LIGHTRED_EX, colorama.Fore.RESET),
+                                    '{}debuff{}'.format(colorama.Fore.YELLOW, colorama.Fore.RESET),
+                                    '{}buff{}'.format(colorama.Fore.LIGHTCYAN_EX, colorama.Fore.RESET),
+                                    'use item(upcoming)', 'inspect', 'help', 'view and edit your inventory', 'settings']
             while True:
-                action = Console.interactive_choice(supported_head_moves, "What do you want to do?",
-                                                    enemy=enemy, battle=True)
+                action = Console.interactive_choice(supported_head_moves,
+                                                    "{}What do you want to do?{}".format(colorama.Style.BRIGHT,
+                                                                                         colorama.Style.NORMAL),
+                                                    battle=True, enumerated=True)
 
-                action = action.lower()
-                if action == "heal":
-                    end_player_choice = execute_move("heal")
-                    if end_player_choice:
-                        break
-
-                elif action == "defend":
+                # The equivalent of defend
+                if action == 0:
                     end_player_choice = execute_move("defend")
                     if end_player_choice:
                         break
 
-                elif action == "attack":
+                # The equivalent of heal
+                elif action == 1:
+                    end_player_choice = execute_move("heal")
+                    if end_player_choice:
+                        break
+
+                # The equivalent of attack
+                elif action == 2:
                     end_player_choice = execute_move("attack")
                     if end_player_choice:
                         break
 
-                elif action == "debuff":
+                # The equivalent of debuff
+                elif action == 3:
                     end_player_choice = execute_move("debuff")
                     if end_player_choice:
                         break
 
-                elif action == "use item":
-                    end_player_choice = execute_move("use item")
-                    if end_player_choice:
-                        break
-
-                elif action == "buff":
+                # The equivalent of buff
+                elif action == 4:
                     end_player_choice = execute_move("buff")
                     if end_player_choice:
                         break
 
-                elif action == "view and edit your inventory":
-                    # The while loop hierarchy makes it so that you don't go back to the main menu from clicking back
-                    while True:
-                        # Asking the player for what part of their inventory they want to view
-                        case_inventory = Console.interactive_choice(['Current equips', 'Items'],
-                                                                    'what part of your inventory do you want to view?',
-                                                                    back_want=True, battle=True, enemy=enemy)
-                        # If the player selects back
-                        if case_inventory is None:
-                            break
+                # The equivalent of use item
+                elif action == 5:
+                    end_player_choice = execute_move("use item")
+                    if end_player_choice:
+                        break
 
-                        elif case_inventory == "Current equips":
-                            while True:
-                                # Getting the current equips
-                                case_list, head_string = Player.Inventory.view_equips()
-                                # Asking what equip they want to view
-                                # We will be using a text changing depending on the equip as the case
-                                # Therefore, we will enumerate the cases
-                                numbered_case = Console.interactive_choice(case_list, head_string,
-                                                                           back_want=True, battle=True,
-                                                                           enemy=enemy, enumerated=True)
-
-                                # noinspection PyUnresolvedReferences
-                                def handle_slot(slot: str, joke_text: str = ''):
-                                    if slot == "head":
-                                        slot_dict = (Player.Inventory.current_equips
-                                                     [slot].parent.get_set_part_description
-                                                     (Player.Inventory.current_equips[slot], player))
-                                    elif slot == "chest":
-                                        slot_dict = (Player.Inventory.current_equips
-                                                     [slot].parent.get_set_part_description
-                                                     (Player.Inventory.current_equips[slot], player))
-                                    elif slot == "legs":
-                                        slot_dict = (Player.Inventory.current_equips
-                                                     [slot].parent.get_set_part_description
-                                                     (Player.Inventory.current_equips[slot], player))
-                                    else:
-                                        raise WrongArgsError("Unknown slot type at handle_slot")
-                                    slot_actions = []
-                                    if not Player.Inventory.current_equips[slot] == Bare:
-                                        slot_actions.append('Throw away')
-                                    slot_actions.append('Unequip')
-                                    decision = Console.interactive_choice(slot_actions,
-                                                                          slot_dict,
-                                                                          battle=True, enemy=enemy, back_want=True)
-                                    if decision == "Unequip":
-                                        if not Player.Inventory.current_equips[slot] == Bare:
-                                            Player.Inventory.unequip(slot)
-                                        else:
-                                            player.dead(None, custom_text=joke_text)
-
-                                    elif decision == "Throw away":
-                                        player.Inventory.throw_away(slot, enemy)
-
-                                # The equivalent of head
-                                if numbered_case == 0:
-                                    if player.Inventory.current_equips['head'] == Bare:
-                                        handle_slot('head', joke_text='You dismember your own head and die immediately')
-                                    else:
-                                        handle_slot('head')
-
-                                # The equivalent of chest
-                                elif numbered_case == 1:
-                                    if player.Inventory.current_equips['chest'] == Bare:
-                                        handle_slot('chest',
-                                                    joke_text='How do you even manage to dismember your whole torso?!')
-                                    else:
-                                        handle_slot('chest')
-
-                                # The equivalent of legs
-                                elif numbered_case == 2:
-                                    if player.Inventory.current_equips['legs'] == Bare:
-                                        handle_slot('legs',
-                                                    joke_text='You dismember your legs and slowly die from blood loss')
-                                    else:
-                                        handle_slot('legs')
-
-                                # Back
-                                elif numbered_case is None:
-                                    break
-                        elif case_inventory == "Items":
-                            head_string, inventory_items = player.Inventory.view()
-                            raw_inventory_items = player.Inventory.view_raw_names()
-                            item_to_inspect: str = Console.interactive_choice(inventory_items, head_string,
-                                                                              battle=True, enemy=enemy, back_want=True)
-
-                            # Removing integer amounts and whitespace from the string so that it can be used
-                            try:
-                                description = (raw_inventory_items
-                                               [inventory_items.index(item_to_inspect)]
-                                               .parent.inspect(raw_inventory_items
-                                                               [inventory_items.index(item_to_inspect)]))
-                            except (AttributeError, ValueError):
-                                if item_to_inspect is not None:
-                                    description = raw_inventory_items[inventory_items.index(item_to_inspect)].inspect()
-                                else:
-                                    description = "Something went wrong under Inventory -> items"
-                            if item_to_inspect is not None:
-                                Console.interactive_choice(["back"], description,
-                                                           battle=True, enemy=enemy)
-
-                elif action == "inspect":
+                # The equivalent of inspect
+                elif action == 6:
                     inspectable_objects = ['yourself', '{}'.format(player.current_enemy.name)]
                     to_inspect = Console.interactive_choice(inspectable_objects, ('Which one of these do you '
                                                                                   'want to inspect?'),
-                                                            enemy=enemy, battle=True, back_want=True)
+                                                            battle=True, back_want=True)
                     if to_inspect == "yourself":
                         while True:
-                            break_local = Console.interactive_choice(["I'm done"], player.inspect(player), enemy=enemy,
+                            break_local = Console.interactive_choice(["I'm done"], player.inspect(player),
                                                                      battle=True)
                             if break_local == "I'm done":
                                 break
 
                     elif to_inspect == "{}".format(player.current_enemy.name):
-                        Console.interactive_choice(["I'm done"], player.current_enemy.inspect(enemy), enemy=enemy,
+                        Console.interactive_choice(["I'm done"], player.current_enemy.inspect(enemy),
                                                    battle=True)
 
-                if action == "help":
+                # The equivalent of help
+                if action == 7:
                     # Different categories you have to traverse through to reach desired information
                     # This is to make sure there are never more than 30 options at the screen at once
                     # If more than 30 options are present at once, it would "break" the console layout
@@ -1593,14 +1671,14 @@ def combat(enemy, location):
                         help_with: str = Console.interactive_choice(list(help_options.keys()),
                                                                     'What sort of thing do you want to know more '
                                                                     'about?',
-                                                                    back_want=True, battle=True, enemy=enemy)
+                                                                    back_want=True, battle=True)
                         if help_with is None:
                             break
                         while True:
                             subcategory: str = Console.interactive_choice(list(help_options[help_with].keys()),
                                                                           'Which one of these categories '
                                                                           'do you want to know more about?',
-                                                                          back_want=True, battle=True, enemy=enemy)
+                                                                          back_want=True, battle=True)
                             if subcategory is None:
                                 break
                             while True:
@@ -1608,14 +1686,181 @@ def combat(enemy, location):
                                                                                   [subcategory].keys()),
                                                                              'Which one of these do you want to know '
                                                                              ' more about?',
-                                                                             battle=True, enemy=enemy, back_want=True)
+                                                                             battle=True, back_want=True)
                                 if final_type is None:
                                     break
                                 Console.interactive_choice(["back"], help_options[help_with][subcategory]
-                                                           [final_type], battle=True, enemy=enemy)
+                                                           [final_type], battle=True)
+
+                # The equivalent of view and edit your inventory
+                elif action == 8:
+                    # The while loop hierarchy makes it so that you don't go back to the main menu from clicking back
+                    while True:
+                        # Asking the player for what part of their inventory they want to view
+                        case_inventory = Console.interactive_choice(['Current equips', 'Items'],
+                                                                    'what part of your inventory do you want to view?',
+                                                                    back_want=True, battle=True)
+                        # If the player selects back
+                        if case_inventory is None:
+                            break
+
+                        elif case_inventory == "Current equips":
+                            while True:
+                                # Getting the current equips
+                                case_list, head_string = Player.Inventory.view_equips()
+                                # Asking what equip they want to view
+                                # We will be using a text changing depending on the equip as the case
+                                # Therefore, we will enumerate the cases
+                                numbered_case = Console.interactive_choice(case_list, head_string,
+                                                                           back_want=True, battle=True,
+                                                                           enumerated=True)
+
+                                # noinspection PyUnresolvedReferences
+                                def handle_slot(slot: str, joke_text: str = ''):
+                                    if slot == "head":
+                                        slot_dict = (Player.Inventory.current_equips
+                                                     [slot].parent.get_set_part_description
+                                                     (Player.Inventory.current_equips[slot], player))
+                                    elif slot == "chest":
+                                        slot_dict = (Player.Inventory.current_equips
+                                                     [slot].parent.get_set_part_description
+                                                     (Player.Inventory.current_equips[slot], player))
+                                    elif slot == "legs":
+                                        slot_dict = (Player.Inventory.current_equips
+                                                     [slot].parent.get_set_part_description
+                                                     (Player.Inventory.current_equips[slot], player))
+                                    else:
+                                        error_logger.error("Unknown slot type at handle_slot:{}".format(slot))
+                                        slot_dict = {'sorry': 'something failed miserably and it has been noted'}
+                                    slot_actions = []
+                                    if not Player.Inventory.current_equips[slot] in GameMaster.Bare_set:
+                                        slot_actions.append('Throw away')
+                                    slot_actions.append('Unequip')
+                                    decision = Console.interactive_choice(slot_actions,
+                                                                          slot_dict,
+                                                                          battle=True, back_want=True)
+                                    if decision == "Unequip":
+                                        if not Player.Inventory.current_equips[slot] in GameMaster.Bare_set:
+                                            Player.Inventory.unequip(slot)
+                                        else:
+                                            player.dead(None, custom_text=joke_text)
+
+                                    elif decision == "Throw away":
+                                        player.Inventory.throw_away(slot)
+
+                                # The equivalent of head
+                                if numbered_case == 0:
+                                    if player.Inventory.current_equips['head'] == Bare.Head:
+                                        handle_slot('head', joke_text='You dismember your own head and die immediately')
+                                    else:
+                                        handle_slot('head')
+
+                                # The equivalent of chest
+                                elif numbered_case == 1:
+                                    if player.Inventory.current_equips['chest'] == Bare.Chest:
+                                        handle_slot('chest',
+                                                    joke_text='How do you even manage to dismember your whole torso?!')
+                                    else:
+                                        handle_slot('chest')
+
+                                # The equivalent of legs
+                                elif numbered_case == 2:
+                                    if player.Inventory.current_equips['legs'] == Bare.Legs:
+                                        handle_slot('legs',
+                                                    joke_text='You dismember your legs and slowly die from blood loss')
+                                    else:
+                                        handle_slot('legs')
+
+                                # Back
+                                elif numbered_case is None:
+                                    break
+                        elif case_inventory == "Items":
+                            while True:
+                                head_string, inventory_items = player.Inventory.view()
+                                raw_inventory_items = player.Inventory.view_raw_names()
+                                item_to_inspect: str = Console.interactive_choice(inventory_items, head_string,
+                                                                                  battle=True, back_want=True)
+
+                                # Going back if desired
+                                if item_to_inspect is None:
+                                    break
+
+                                # Removing integer amounts and whitespace from the string so that it can be used
+                                try:
+                                    description = (raw_inventory_items
+                                                   [inventory_items.index(item_to_inspect)]
+                                                   .parent.inspect(raw_inventory_items
+                                                                   [inventory_items.index(item_to_inspect)]))
+                                except (AttributeError, ValueError):
+                                    if item_to_inspect is not None:
+                                        description = (raw_inventory_items[inventory_items.index(item_to_inspect)].
+                                                       inspect())
+                                    else:
+                                        description = "Something went wrong under Inventory -> items"
+
+                                # Making a list of the possible ways to interact with the item
+                                # noinspection PyListCreation
+                                item_actions = []
+                                item_actions.append("throw away")
+
+                                # If the item is some sort of armor, you can equip it
+                                if hasattr(raw_inventory_items[inventory_items.index(item_to_inspect)], "parent"):
+                                    item_actions.append("equip")
+
+                                while True:
+                                    item_interaction = Console.interactive_choice(item_actions, description,
+                                                                                  battle=True, back_want=True)
+
+                                    if item_interaction is None:
+                                        break
+                                    elif item_interaction == "throw away":
+                                        thrown_away = player.Inventory.throw_away(raw_inventory_items
+                                                                                  [inventory_items.index
+                                                                                   (item_to_inspect)])
+                                        if thrown_away == "all":
+                                            break
+                                    elif item_interaction == "equip":
+                                        result = player.Inventory.equip(raw_inventory_items
+                                                                        [inventory_items.index
+                                                                         (item_to_inspect)])
+                                        if result == "success":
+                                            break
+                                    else:
+                                        error_logger.error("Unknown item interaction: {}".format(item_interaction))
+
+                # The equivalent of settings
+                elif action == 9:
+                    def save_settings():
+                        project_path = os.path.abspath("")
+                        with open("{}\\Saves\\General info\\Config.json".format(project_path), 'w') as f:
+                            json.dump(GameMaster.settings, f)
+
+                    while True:
+                        setting_list = []
+                        for key in GameMaster.settings:
+                            setting_list.append("{}: {}".format(key, GameMaster.settings[key]))
+
+                        setting_to_be_changed = Console.interactive_choice(setting_list,
+                                                                           'Click on any of these to change them',
+                                                                           battle=True, back_want=True, enumerated=True)
+
+                        # Going back case
+                        if setting_to_be_changed is None:
+                            break
+
+                        # Nerd mode case
+                        elif setting_to_be_changed == 0:
+                            if not GameMaster.settings['nerd mode']:
+                                GameMaster.settings['nerd mode'] = True
+                            elif GameMaster.settings['nerd mode']:
+                                GameMaster.settings['nerd mode'] = False
+                            else:
+                                (error_logger.error("Illegal case in settings nerd mode:{}"
+                                                    .format(GameMaster.settings['nerd mode'])))
+                            save_settings()
 
         # Calls the player's main choice
-        # The call is way back here because the function after and the functions it depends on need to be declared
+        # The call is way back here because the code it depends on need to be declared
         main_choice()
 
     def enemy_turn():
@@ -1672,10 +1917,46 @@ def on_start():
     # Defining the path of the game
     project_path = os.path.abspath("")
 
-    with open(project_path + "\\Saves\\General info\\Platform.txt", 'r') as f:
-        windows_version = f.read()
+    # Setting up the game settings with json
+    if os.stat("{}\\Saves\\General info\\Config.json".format(project_path)).st_size != 0:
+        with open("{}\\Saves\\General info\\Config.json".format(project_path)) as f:
+            GameMaster.settings = json.load(f)
 
-    if windows_version == 'Windows-8.1' or windows_version == 'Windows-8':
+    else:
+        settings = '''
+        {
+            "nerd mode": false
+        }
+        '''
+        settings = json.loads(settings)
+        GameMaster.settings = settings
+
+    # Setting up some loggers
+    # Info logger
+    def setup_logger(name, file, level=logging.WARNING):
+        # Function to easily create loggers
+
+        handler = logging.FileHandler(file)
+        formatter = logging.Formatter("%(asctime)s:%(levelname)s:%(filename)s:%(lineno)d:%(message)s")
+        handler.setFormatter(formatter)
+
+        logger = logging.getLogger(name)
+        logger.setLevel(level)
+        logger.addHandler(handler)
+
+        return logger
+
+    # Info logger
+    info_log = setup_logger("Info logging", "{}\\Logs\\logging_info.log".format(project_path), level=logging.INFO)
+
+    # Error logger
+    error_log = setup_logger("Error logging", "{}\\Logs\\logging_errors.log".format(project_path))
+
+    # Settings up some info depending on the windows version used
+    with open(project_path + "\\Saves\\General info\\Platform.txt", 'r') as f:
+        os_version = f.read()
+
+    if os_version == 'Windows-8.1' or os_version == 'Windows-8':
         GameMaster.console_location_x = 0
         GameMaster.console_location_y = 0
         GameMaster.font_size_x = 8
@@ -1684,7 +1965,7 @@ def on_start():
         GameMaster.y_to_console = 32
         GameMaster.console_height_x = 0
         GameMaster.console_location_y = 0
-    elif windows_version == 'Windows-10':
+    elif os_version == 'Windows-10':
         GameMaster.console_location_x = -9
         GameMaster.console_location_y = 0
         GameMaster.font_size_x = 8
@@ -1694,14 +1975,28 @@ def on_start():
         GameMaster.console_height_x = 980
         GameMaster.console_height_y = 524
     else:
-        print('Something has gone wrong. Please email matistjati@outlook.com,'
-              ' saying "unsupported os: {}'.format(windows_version))
-        input("Press any key to continue")
+        # If the user is using an os i'm not yet supporting
+        error_log.warning("Unsupported os:{}".format(os_version))
+
+        # Will default to windows 10 settings
+        GameMaster.console_location_x = -9
+        GameMaster.console_location_y = 0
+        GameMaster.font_size_x = 8
+        GameMaster.font_size_y = 16
+        GameMaster.x_to_console = 1
+        GameMaster.y_to_console = 30
+        GameMaster.console_height_x = 980
+        GameMaster.console_height_y = 524
+
+    return error_log, info_log
 
 
 if __name__ == '__main__':
-    on_start()
+    # Setting some variables to be used during runtime
+    error_logger, info_logger = on_start()
     player = Player()
+    # Initiating colorama so that we can color console output
+    colorama.init()
     hen = Enemy(1, 'Gullbert the hen', 'A hen', 40, 20, 'male', "feather", "radish")
     player.add_move(Moves.calming_heal)
     player.add_move(Moves.intense_heal)
