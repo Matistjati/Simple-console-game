@@ -126,12 +126,14 @@ class Console:
             player_hp = int((player.current_hp / player.max_hp) * 10)
             enemy_hp = int((player.current_enemy.current_hp / player.current_enemy.max_hp) * 10)
 
-            player_mid_healthbar = (' ' * (player_healthbar_spacing - len(line_23)) + standing_line + block * player_hp
+            player_mid_healthbar = (' ' * (player_healthbar_spacing - len(line_23)) + standing_line +
+                                    colorama.Fore.RED + block * player_hp + colorama.Style.RESET_ALL
                                     + " " * (10 - player_hp) + standing_line +
                                     "{}/{} hp".format(player.current_hp, player.max_hp))
 
             enemy_mid_healthbar = (' ' * (enemy_healthbar_spacing - len(line_7)) + standing_line +
-                                   block * enemy_hp + " " * (10 - enemy_hp) + standing_line +
+                                   colorama.Fore.RED + block * enemy_hp + " " * (10 - enemy_hp) +
+                                   colorama.Style.RESET_ALL + standing_line +
                                    '{}/{} hp'.format(player.current_enemy.current_hp, player.current_enemy.max_hp))
 
             log_lines = 4
@@ -141,9 +143,10 @@ class Console:
             spacing_2 = " " * (max_spacing - len(GameMaster.action_log[len(GameMaster.action_log) - 2]))
             spacing_3 = " " * (max_spacing - len(GameMaster.action_log[len(GameMaster.action_log) - 3]))
             spacing_4 = " " * (max_spacing - len(GameMaster.action_log[len(GameMaster.action_log) - 4]))
+            spacing_5 = " " * (max_spacing - len(GameMaster.action_log[len(GameMaster.action_log) - 5]))
 
-            action_log_mid_1 = (' ' * (overlapping_action_log_spacing - (len(player_mid_healthbar)) +
-                                       (overlapping_action_log_spacing_special - len(line_23)))
+            action_log_mid_1 = (' ' * (overlapping_action_log_spacing - (len(player_mid_healthbar) - 9) +
+                                (overlapping_action_log_spacing_special - len(line_23)))
                                 + standing_line +
                                 GameMaster.action_log[len(GameMaster.action_log) - 1]
                                 + spacing_1 + standing_line)
@@ -161,6 +164,10 @@ class Console:
             action_log_mid_4 = (' ' * (normal_action_log_spacing - len(line_26)) + standing_line +
                                 GameMaster.action_log[len(GameMaster.action_log) - 4]
                                 + spacing_4 + standing_line)
+
+            action_log_mid_5 = (' ' * (normal_action_log_spacing - len(line_27)) + standing_line +
+                                GameMaster.action_log[len(GameMaster.action_log) - 5]
+                                + spacing_5 + standing_line)
 
             action_log_top = (' ' * (overlapping_action_log_spacing - len(player_top_healthbar) +
                                      (overlapping_action_log_spacing_special - len(line_22))) + " " +
@@ -182,6 +189,7 @@ class Console:
             action_log_mid_2 = ""
             action_log_mid_3 = ""
             action_log_mid_4 = ""
+            action_log_mid_5 = ""
 
         # Joining all the strings to be printed
         lines = {0: line_1, 1: line_2, 2: line_3, 3: line_4, 4: line_5,
@@ -196,8 +204,9 @@ class Console:
                  23: line_24 + player_bot_healthbar + action_log_mid_2,
                  24: line_25 + action_log_mid_3,
                  25: line_26 + action_log_mid_4,
-                 26: line_27 + action_log_bot,
-                 27: line_28, 28: line_29}
+                 26: line_27 + action_log_mid_5,
+                 27: line_28 + action_log_bot,
+                 28: line_29}
 
         # Printing the strings
         for i in range(0, 29):
@@ -294,30 +303,14 @@ class Console:
 class Statuses:
     # A collection class of all the statuses a character can have
     @staticmethod
-    def apply_on_fire(target):
-        # Applies DOT damage at the start of a turn and makes the target panic (lower awareness)
-        damage_taken = (int((target.current_hp * 0.1)))
-        if target == player:
-            player.new_awareness('specific', 20)
-        return damage_taken
-
-    @staticmethod
-    def apply_frozen(original_speed):
-        # Decreases the target's speed during turn calculations
-        slowed_speed = (int(original_speed * 0.5))
-        return slowed_speed
-
-    @staticmethod
-    def apply_weak(original_damage):
-        # Decreases an incoming attack's damage
-        weakened_damage = int(original_damage * 0.5)
-        return weakened_damage
-
-    @staticmethod
     def apply_bleed(target):
         # Applies DOT damage at the start of a turn
         damage_taken = (int(target.max_hp * 0.15))
         return damage_taken
+
+    @staticmethod
+    def stun():
+        pass
 
 
 supported_Statuses = {
@@ -328,110 +321,29 @@ supported_Statuses = {
     # type doesn't serve any purpose at the moment
     # description is used when inspecting someone who is afflicted
     # on_apply_message_player and enemy are to be used in the action log
-    Statuses.apply_on_fire:
-        {
-            'head_type': 'debuff',
-            'apply_type': 'start_dot', 'type': 'fire',
-            'description': 'on fire',
-            'on_apply_message_player': 'Hot! You panic and take',
-            'on_apply_message_enemy': 'Hot! '
-        },
-    Statuses.apply_frozen:
-        {
-            'head_type': 'debuff',
-            'apply_type': 'weaker_speed', 'type': 'ice',
-            'description': 'frozen',
-            'on_apply_message_player': '',
-            'on_apply_message_enemy': ''
-        },
     Statuses.apply_bleed:
         {
             'head_type': 'debuff',
-            'apply_type': 'start_dot', 'type': 'bleeding',
+            'apply_type': 'start_dot',
+            'type': 'burning',
             'description': 'bleeding',
             'on_apply_message_player': 'You better stop this bleeding soon... You take',
             'on_apply_message_enemy': 'Blood spills forth as the enemy takes'
         },
-    Statuses.apply_weak:
+    Statuses.stun:
         {
             'head_type': 'debuff',
-            'apply_type': 'weaker_damage', 'type': None,
-            'description': 'weak',
-            'help': 'Halves the damage of the targets incoming attacks',
-            'on_apply_message_player': 'Your attacked is weakend and deals',
-            'on_apply_message_enemy': "The enemy's attack is weakened and deals"
+            'apply_type': '',
+            'description': 'stunned',
+            'on_apply_message_player': 'Your head feels too dizzy to do anything.',
+            'on_apply_message_enemy': 'Looks like {} is too dizzy to act'
         }
-
 }
 
 
-class Moves:
-    # A collection of all possible moves
-    # The general blueprint is:
-    # does an action based on why made the move (caster)
-    # creates a string to add to the action log and returns it
-    @staticmethod
-    def calming_heal(caster):
-        amount_healed = int((caster.current_hp / 5) + (caster.max_hp / 10))
-        caster.current_hp += amount_healed
-        if caster.current_hp >= caster.max_hp:
-            caster.current_hp = caster.max_hp
-        if caster == player:
-            player.new_awareness('increase', 1)
-            return "You heal for {} hp and feel a bit calmer".format(amount_healed)
-        else:
-            return "The enemy heals for {} hp".format(amount_healed)
-
-    @staticmethod
-    def intense_heal(caster):
-        amount_healed = int((caster.current_hp / 3) + (caster.max_hp / 4))
-        caster.current_hp += amount_healed
-        if caster.current_hp >= caster.max_hp:
-            caster.current_hp = caster.max_hp
-        if caster == player:
-            return "You heal for {} hp".format(amount_healed)
-        else:
-            return "The enemy heals for {} hp".format(amount_healed)
-
-
-supported_moves = {
-    Moves.calming_heal:
-        {
-            'type': 'heal',
-        },
-    Moves.intense_heal:
-        {
-            'type': 'heal',
-        }
+WeaponEffect = {
 
 }
-
-
-class ArmorEffect:
-    # Effects that are tied to armors
-
-    @staticmethod
-    def change_stat(stat: int, change_amount: int, effect_level: int, effect_description: str):
-        # change_type specifies if the stat parameter is to be increased or decreased
-        # The stat is then changed according to change_amount * effect_level
-        # Change amount is negative if we want to perform a reduction
-        # Effect_level is increased by 1 for each item in that is in the same set worn by6 the player
-        # effect_description is then added to the action log to inform the player that a set bonus has kicked in
-        GameMaster.action_log.append(effect_description)
-        if effect_level < 3:
-            stat += change_amount * effect_level
-            if stat >= 0:
-                return stat
-            else:
-                return 0
-        else:
-            # If effect_level is 3 (the whole set is worn), the set bonus becomes more powerful
-            stat += change_amount * (effect_level + 2)
-            return 0
-
-
-class WeaponEffect:
-    pass
 
 
 class Item:
@@ -489,8 +401,12 @@ class Item:
             temp_description = temp_description + "."
 
         # Concatenating it all together
-        return ("{}\nIt is worth {} gold and weighs {}.\nIt is {} {} that is {}".format
-                (temp_description, self.value, weight, a_or_an, self.item_type, Item.rarity_level(self)))
+        if GameMaster.settings['nerd mode']:
+            return ("{}\nIt is worth {} gold and weighs {}.\nIt is {} {} whose droprate is {}%.".format
+                    (temp_description, self.value, weight, a_or_an, self.item_type, self.rarity))
+        else:
+            return ("{}\nIt is worth {} gold and weighs {}.\nIt is {} {} that is {}.".format
+                    (temp_description, self.value, weight, a_or_an, self.item_type, Item.rarity_level(self)))
 
 
 class Wearable(Item):
@@ -539,18 +455,25 @@ class Weapon(Item):
         else:
             a_or_an = "a"
         if hasattr(Wearable, self.special_effect):
-            special_effect_text = (". {} and {} affect the enemy".format
-                                   (weapon_effects[self.special_effect]['description'],
-                                    self.likeliness_level()))
+            if GameMaster.settings['nerd mode']:
+                special_effect_text = ("{} and is {} affect the enemy".format
+                                       (WeaponEffect[self.special_effect]['description'],
+                                        self.likeliness_level()))
+            else:
+                special_effect_text = ("{} and is {} affect the enemy".format
+                                       (WeaponEffect[self.special_effect]['description'],
+                                        self.effect_rate))
         else:
             special_effect_text = ""
 
-        return ("{}.It is worth {} gold and weighs {}. It is {} {} that is {}{}".format
-                (self.description, self.value, self.weight, a_or_an, self.item_type, self.rarity_level(),
-                 special_effect_text))
-
-    def get_id(self):
-        return self.item_id
+        if GameMaster.settings['nerd mode']:
+            return ("{}.It is worth {} gold and weighs {}. It is {} {} that has a droprate of {}%. {}".format
+                    (self.description, self.value, self.weight, a_or_an, self.item_type, self.rarity,
+                     special_effect_text))
+        else:
+            return ("{}.It is worth {} gold and weighs {}. It is {} {} that is {}. {}".format
+                    (self.description, self.value, self.weight, a_or_an, self.item_type, self.rarity_level(),
+                     special_effect_text))
 
 
 # feather = Item('feather', 1, 10, 'material', 1, 'A feather from a hen', 'common')
@@ -563,7 +486,6 @@ class Bare(Wearable):
 
     set_effect_description_good = 'People are astonished by your amazing body, increasing your speech by '
     set_effect_description_bad = "People won't trust you, running around without clothes, decreasing your speech by "
-    set_effect = ArmorEffect.change_stat
 
     effect_inspect_text = "If you're weak and naked, no one will trust you, making negotiating harder.\n" \
                           "However, if you're buff, people will be amazed, making negotiating easier"
@@ -583,6 +505,11 @@ class Bare(Wearable):
         value = 'unsellable'
         rarity = 'unobtainable'
         defense = 1
+        dodge_mod = 4
+        crit_mod = 0
+        speed_mod = 10
+        damage_mod = 0
+        int_mod = 0
         description_good = 'Even though your face looks terrible, people are distracted by your glorious body,'
         effect_amount_good = 0
         description_bad = 'Your face looks terrible, it will make negotiating harder'
@@ -600,6 +527,11 @@ class Bare(Wearable):
         value = 'unsellable'
         rarity = 'unobtainable'
         defense = 3
+        dodge_mod = 4
+        crit_mod = 0
+        speed_mod = 10
+        damage_mod = 0
+        int_mod = 0
         description_good = 'Nice gains, bro'
         effect_amount_good = 4
         description_bad = 'You even lift, bro?'
@@ -617,6 +549,11 @@ class Bare(Wearable):
         value = 'unsellable'
         rarity = 'unobtainable'
         defense = 2
+        dodge_mod = 4
+        crit_mod = 0
+        speed_mod = 10
+        damage_mod = 0
+        int_mod = 0
         description_good = 'Not wearing pants only seems to be in your flavor with such a body'
         effect_amount_good = 1
         description_bad = 'Oh please, at least put some pants on'
@@ -632,7 +569,12 @@ class Bare(Wearable):
     @staticmethod
     def get_set_effect(user, head: bool = False, chest: bool = False, legs: bool = False):
         change_amount = 0
-        if user.strength > 50:
+        if hasattr(user, 'parent'):
+            user_strength = user.parent.strength
+        else:
+            user_strength = user.strength
+
+        if user_strength > 50:
             if head:
                 change_amount += Bare.Head.effect_amount_good
             if chest:
@@ -650,11 +592,6 @@ class Bare(Wearable):
             return "speech", change_amount, Bare.set_effect_description_bad
 
 
-Bare.Head = Bare.Head(Bare)
-Bare.Chest = Bare.Chest(Bare)
-Bare.Legs = Bare.Legs(Bare)
-
-
 class Leaves(Wearable):
     item_id = 2
 
@@ -662,7 +599,6 @@ class Leaves(Wearable):
                                   "increasing your speech by "
     set_effect_description_bad = "People are disappointed that you're hiding your glorious body, decreasing " \
                                  "your speech by "
-    set_effect = ArmorEffect.change_stat
     effect_inspect_text = "If you're weak, people will respect you for hiding your weak body, increasing your " \
                           "speech\nHowever, if you're buff, people will become angry for not showing yourself," \
                           " decreasing your speech"
@@ -681,6 +617,11 @@ class Leaves(Wearable):
         value = 2
         rarity = 3
         defense = 2
+        dodge_mod = 4
+        crit_mod = 0
+        speed_mod = 13
+        damage_mod = 0
+        int_mod = 3
         description_good = 'Your leaf crown actually hides your horrible face pretty well'
         effect_amount_good = 1
         description_bad = "People don't really mind your face since your body is so muscular"
@@ -698,6 +639,11 @@ class Leaves(Wearable):
         value = 4
         rarity = 3
         defense = 2
+        dodge_mod = 4
+        crit_mod = 0
+        speed_mod = 13
+        damage_mod = 0
+        int_mod = 3
         description_good = 'This finely crafted leaf chestmail hides your weak chest perfectly'
         effect_amount_good = 2
         description_bad = 'Why hide your amazing chest?'
@@ -715,6 +661,11 @@ class Leaves(Wearable):
         value = 3
         rarity_level = 3
         defense = 2
+        dodge_mod = 4
+        crit_mod = 0
+        speed_mod = 13
+        damage_mod = 0
+        int_mod = 3
         description_good = 'People are looking happy that you at least covered up your private parts'
         effect_amount_good = 4
         description_bad = 'People look angry that you hide your amazing body'
@@ -730,7 +681,13 @@ class Leaves(Wearable):
     @staticmethod
     def get_set_effect(user, head: bool = False, chest: bool = False, legs: bool = False):
         change_amount = 0
-        if user.strength < 50:
+        # noinspection PyUnresolvedReferences
+        if hasattr(user, 'parent'):
+            user_strength = user.parent.strength
+        else:
+            user_strength = user.strength
+
+        if user_strength < 50:
             if head:
                 change_amount += Leaves.Head.effect_amount_good
             if chest:
@@ -748,12 +705,19 @@ class Leaves(Wearable):
             return "speech", change_amount, Leaves.set_effect_description_bad
 
 
+# Initiating all items
+Gold = Item('Gold', 0, 1, 'valuable', 0, 'The foundation of modern society.. or perhaps its worst mistake?', 75,
+            50000)
+
 Leaves.Head = Leaves.Head(Leaves)
 Leaves.Chest = Leaves.Chest(Leaves)
 Leaves.Legs = Leaves.Legs(Leaves)
 
-Gold = Item('Gold', 0, 1, 'valuable', 0, 'The foundation of modern society.. or perhaps its worst mistake?', 75,
-            50000)
+Bare.Head = Bare.Head(Bare)
+Bare.Chest = Bare.Chest(Bare)
+Bare.Legs = Bare.Legs(Bare)
+
+Fist = Weapon('Fist', 0, 0, 'weapon', 3, 'A plain old fist', 0, 0, 3)
 
 
 class GameMaster:
@@ -764,7 +728,8 @@ class GameMaster:
     game_name = "Please select a game name"
     last_damage_player = ""
     vowels = ("a", "o", "u", "e", "i")
-    action_log = ['               ', '               ', '               ', '               ', '               ']
+    action_log = ['               ', '               ', '               ', '               ', '               ',
+                  '               ']
     game_state = {}
     statistics = {}
     y_to_console = 0
@@ -780,26 +745,583 @@ class GameMaster:
 class Character:
     awareness: int
     speed: int
-    current_enemy = None
 
-    def __init__(self):
-        self.description = str
-        self.strength = int
-        self.gender = str
+    def __init__(self, name, gender, dodge, speed, intelligence, prot,
+                 crit, awareness, max_hp, strength, description=""):
+        self.name = name
+        self.gender = gender
+        self.intelligence = intelligence
+        self.dodge = dodge
+        self.speed = speed
+        self.gender = gender
+        self.prot = prot
+        self.crit = crit
+        self.awareness = awareness
+        self.max_hp = max_hp
+        self.current_hp = max_hp
+        self.strength = strength
+        self.description = ""
         self.Statuses = {}
-        self.name = str
-        self.current_hp = int
-        self.max_hp = int
+        self.current_enemy = None
+        self.unlocked_Moves = {}
+        self.description = description
 
-    def apply_effect(self, status, duration, effect_amount):
+    # noinspection PyUnresolvedReferences
+    def calculate_stat_change(self, stat, stat_value):
+        for status in self.Statuses:
+            try:
+                if supported_Statuses[status] == stat:
+                    stat_value += player.Statuses[status]['amount']
+            except KeyError:
+                pass
+
+        # This code is messy, let's pray that it doesn't break
+        effect_level_head = 1
+        effect_level_chest = 1
+        effect_level_legs = 1
+        if player.inventory.current_equips['head'].parent == player.inventory.current_equips['chest'].parent:
+            effect_level_head += 1
+            effect_level_chest += 1
+        if player.inventory.current_equips['head'].parent == player.inventory.current_equips['legs'].parent:
+            effect_level_head += 1
+            effect_level_legs += 1
+        if player.inventory.current_equips['chest'].parent == player.inventory.current_equips['legs'].parent:
+            effect_level_legs += 1
+            effect_level_chest += 1
+        if effect_level_chest == 3:
+            effect_level_chest += 2
+        if effect_level_head == 3:
+            effect_level_head += 2
+        if effect_level_legs == 3:
+            effect_level_legs += 2
+
+        change_types = []
+        armor_effect_amounts = []
+        if self == player:
+            for set_part in self.inventory.current_equips:
+                if set_part == "head":
+                    change_type, amount, __ = (self.inventory.current_equips[set_part].parent
+                                               .get_set_effect(player, head=True))
+                elif set_part == "chest":
+                    change_type, amount, __ = (self.inventory.current_equips[set_part].parent
+                                               .get_set_effect(player, chest=True))
+                elif set_part == "legs":
+                    change_type, amount, __ = (self.inventory.current_equips[set_part].parent
+                                               .get_set_effect(player, legs=True))
+                else:
+                    amount = 0
+                    change_type = ""
+
+                change_types.append(change_type)
+                armor_effect_amounts.append(amount)
+
+        elif hasattr(self, 'current_equips'):
+            for set_part in self.current_equips:
+                if set_part == "head":
+                    change_type, amount, __ = (self.current_equips[set_part].parent
+                                               .get_set_effect(player, head=True))
+                elif set_part == "chest":
+                    change_type, amount, __ = (self.current_equips[set_part].parent
+                                               .get_set_effect(player, chest=True))
+                elif set_part == "legs":
+                    change_type, amount, __ = (self.current_equips[set_part].parent
+                                               .get_set_effect(player, legs=True))
+                else:
+                    amount = 0
+                    change_type = ""
+
+                change_types.append(change_type)
+                armor_effect_amounts.append(amount)
+
+        elif isinstance(self, Enemy):
+            for set_part in self.inventory.current_equips:
+                if set_part == "head":
+                    change_type, amount, __ = (self.inventory.current_equips[set_part].parent
+                                               .get_set_effect(player, head=True))
+                elif set_part == "chest":
+                    change_type, amount, __ = (self.inventory.current_equips[set_part].parent
+                                               .get_set_effect(player, chest=True))
+                elif set_part == "legs":
+                    change_type, amount, __ = (self.inventory.current_equips[set_part].parent
+                                               .get_set_effect(player, legs=True))
+                else:
+                    amount = 0
+                    change_type = ""
+
+                change_types.append(change_type)
+                armor_effect_amounts.append(amount)
+
+        else:
+            error_logger.error("Unknown self: {}".format(self))
+
+        try:
+            armor_effect_amounts[0] *= effect_level_head
+        except IndexError:
+            pass
+
+        try:
+            armor_effect_amounts[1] *= effect_level_chest
+        except IndexError:
+            pass
+
+        try:
+            armor_effect_amounts[2] *= effect_level_legs
+        except IndexError:
+            pass
+
+        change = False
+        try:
+            if change_types[0] == change_types[1]:
+                del change_types[1]
+                armor_effect_amounts[0] += armor_effect_amounts[1]
+                del armor_effect_amounts[1]
+                change = True
+        except IndexError:
+            pass
+
+        if change:
+            try:
+                if change_types[0] == change_types[1]:
+                    del change_types[1]
+                    armor_effect_amounts[0] += armor_effect_amounts[1]
+                    del armor_effect_amounts[1]
+            except IndexError:
+                pass
+        else:
+            try:
+                if change_types[0] == change_types[2]:
+                    del change_types[2]
+                    armor_effect_amounts[0] += armor_effect_amounts[2]
+                    del armor_effect_amounts[2]
+            except IndexError:
+                pass
+
+            try:
+                if change_types[1] == change_types[2]:
+                    del change_types[2]
+                    armor_effect_amounts[1] += armor_effect_amounts[2]
+                    del armor_effect_amounts[2]
+            except IndexError:
+                pass
+
+        for change_type in change_types:
+            if change_type == stat:
+                stat_value += armor_effect_amounts[change_types.index(change_type)]
+
+        if self == player:
+            head = self.inventory.current_equips['head']
+            chest = self.inventory.current_equips['chest']
+            legs = self.inventory.current_equips['legs']
+        elif hasattr(self, 'current_equips'):
+            head = self.current_equips('head')
+            chest = self.current_equips('chest')
+            legs = self.current_equips('legs')
+        elif isinstance(self, Enemy):
+            head = self.inventory.current_equips['head']
+            chest = self.inventory.current_equips['chest']
+            legs = self.inventory.current_equips['legs']
+        else:
+            error_logger.error("Unknown self: {}".format(self))
+            head = Bare.Head
+            chest = Bare.Chest
+            legs = Bare.Legs
+
+        if stat == 'crit':
+            stat_value += head.crit_mod
+            stat_value += chest.crit_mod
+            stat_value += legs.crit_mod
+        elif stat == 'intelligence':
+            stat_value += head.int_mod
+            stat_value += chest.int_mod
+            stat_value += legs.int_mod
+        elif stat == 'dodge':
+            stat_value += head.dodge_mod
+            stat_value += chest.dodge_mod
+            stat_value += legs.dodge_mod
+        elif stat == 'speed':
+            stat_value += head.speed_mod
+            stat_value += chest.speed_mod
+            stat_value += legs.speed_mod
+        elif stat == 'damage':
+            stat_value += head.damage_mod
+            stat_value += chest.damage_mod
+            stat_value += legs.damage_mod
+
+        if stat_value > 100:
+            return 100
+        elif stat_value < -100:
+            return -100
+        else:
+            return stat_value
+
+    class Inventory:
+        def __init__(self, parent, max_spaces: int = 10):
+            self.max_spaces = max_spaces
+            self.parent = parent
+        items = {}
+        current_equips = {'head': Leaves.Head, 'chest': Leaves.Chest, 'legs': Leaves.Legs, 'left hand': Fist,
+                          'right hand': Fist}
+
+        # noinspection PyUnresolvedReferences
+        @staticmethod
+        def get_plural(words):
+            # Dicts are only used in the case of the inventory
+            if isinstance(words, dict):
+                plural_words = []
+                for item in words:
+                    if words[item] > 1:
+                        if item.name[-1] == "h" or item.name[-1] == "H":
+                            plural_words.append('{} {}es'.format(words[item], item.name))
+                        # Some things shouldn't have s at the end, even in plural. Example: golds
+                        elif item.name not in GameMaster.no_s_at_end_exceptions:
+                            plural_words.append('{} {}s'.format(words[item], item.name))
+                        else:
+                            plural_words.append('{} {}'.format(words[item], item.name))
+                    else:
+                        plural_words.append('{} {}'.format(words[item], item.name))
+                return plural_words
+            else:
+                item = words
+                if isinstance(item, type):
+                    if item.name[-1] == "h" or item.name[-1] == "H":
+                        final_word = ('{}es'.format(item.name))
+                    # Some things shouldn't have s at the end, even in plural. Example: golds is wrong
+                    elif item.name not in GameMaster.no_s_at_end_exceptions:
+                        final_word = ('{}s'.format(item.name))
+                    else:
+                        final_word = ('{}'.format(item.name))
+                else:
+                    if item[-1] == "h" or item[-1] == "H":
+                        final_word = ('{}es'.format(item))
+                        # Some things shouldn't have s at the end, even in plural. Example: golds
+                    elif item not in GameMaster.no_s_at_end_exceptions:
+                        final_word = ('{}s'.format(item))
+                    else:
+                        final_word = ('{}'.format(item))
+
+                return final_word
+
+        def unequip(self, slot: str):
+            if self.current_equips[slot] != Bare:
+                try_unequip = self.add_item(self.current_equips[slot])
+                if try_unequip == "bag_full":
+                    return
+                else:
+                    if slot == "head":
+                        self.current_equips[slot] = Bare.Head
+                    elif slot == "chest":
+                        self.current_equips[slot] = Bare.Chest
+                    elif slot == "legs":
+                        self.current_equips[slot] = Bare.Legs
+                    else:
+                        error_logger.error("slot at unequip={}".format(slot))
+            else:
+                error_logger.error('Unhandled case of trying to unequip bare in the {} slot'.format(slot))
+
+        def throw_away(self, item):
+            # Method for removing an item from the inventory
+            if item in self.items:
+                # Checking if the item actually "exists", otherwise deletes it and logs it
+                if self.items[item] <= 0:
+                    del self.items[item]
+                    error_logger.error("An item of amount {} was found in inventory at throw_away".format(item))
+                elif self.items[item] == 1:
+                    # If only one of the item exists, check if the player is sure
+                    # If the player does want to throw it away, it does so and informs the player via the action log
+                    confirmation = Console.interactive_choice(['Yes', 'No'],
+                                                              ('Are you sure that you want to throw away the {} ?'.
+                                                               format(item.name)),
+                                                              battle=True)
+                    if confirmation == "Yes":
+                        del self.items[item]
+                        GameMaster.action_log.append("You threw away the {}".format(item.name))
+                        return "all"
+                    elif confirmation == "No":
+                        return
+                    else:
+                        error_logger.error('Unknown case "{}"'.format(confirmation))
+
+                else:
+                    amount = Console.interactive_choice(['all', 'specific amount'],
+                                                        'How many do you want to throw away?',
+                                                        battle=True, back_want=True)
+                    if amount == 'all':
+                        confirmation = (Console.interactive_choice
+                                        (['Yes', 'No'], ('Are you sure that you want to throw away all of the {} ?'.
+                                                         format(item.name)), battle=True))
+
+                        if confirmation == "Yes":
+                            GameMaster.action_log.append("You threw away all the {}".format(item.name))
+                            del self.items[item]
+                            return 'all'
+                        elif confirmation == "No":
+                            return
+                        else:
+                            error_logger.error('Unknown case "{}"'.format(confirmation))
+                    elif amount == 'specific amount':
+                        if item.name in GameMaster.no_s_at_end_exceptions:
+                            head_string = "How much of the {} do you want to throw away?".format(self.
+                                                                                                 get_plural(item.name))
+                        else:
+                            head_string = "How many of the {} do you want to throw away?".format(self.
+                                                                                                 get_plural(item.name))
+
+                        while True:
+                            while True:
+                                Console.clear()
+                                amount_to_throw_away: int = input(head_string + "\n"
+                                                                  "If you do not want to throw away any, enter 0\n")
+                                if isint(amount_to_throw_away):
+                                    amount_to_throw_away = int(amount_to_throw_away)
+                                    break
+                            if amount_to_throw_away >= self.items[item]:
+                                GameMaster.action_log.append("You threw away all the {}".format(item.name))
+                                del self.items[item]
+                                return 'all'
+                            elif amount_to_throw_away <= 0:
+                                return
+                            else:
+                                (GameMaster.action_log.append("You threw away {} {}"
+                                                              .format(amount_to_throw_away,
+                                                                      self.get_plural(item.name))))
+                                self.items[item] -= amount_to_throw_away
+                                return
+
+            elif item in self.current_equips:
+                confirmation = Console.interactive_choice(['Yes', 'No'],
+                                                          ('Are you sure that you want to throw away the {} ?'.
+                                                           format(self.current_equips[item].name)),
+                                                          battle=True)
+                # You can't throw away your own body
+                if confirmation:
+                    if item == "head":
+                        self.current_equips[item] = Bare.Head
+                    elif item == "chest":
+                        self.current_equips[item] = Bare.Chest
+                    elif item == "legs":
+                        self.current_equips[item] = Bare.Legs
+
+            else:
+                error_logger.error("Trying to remove the item {}"
+                                   " that isn't in the inventory or current equips: {}, {}".format(item, self.items,
+                                                                                                   self.current_equips))
+
+        def add_item(self, item, amount: int = 1):
+            current_weight = 0
+            if not len(self.items) == 0:
+                for thing in self.items:
+                    current_weight = current_weight + (thing.weight * self.items[thing])
+                if (current_weight + item.weight) <= self.max_spaces:
+                    if item not in self.items:
+                        self.items[item] = amount
+                    else:
+                        self.items[item] += amount
+                else:
+                    print("Your bag can't fit this item")
+                    return "bag_full"
+            else:
+                self.items[item] = amount
+
+        # Method for equipping an armor
+        def equip(self, item):
+            # Checking if the item is an armor piece
+            if hasattr(item, "parent"):
+                # Checking that it exists
+                if not self.items[item] <= 0:
+                    # noinspection PyUnresolvedReferences
+                    if self.current_equips[item.set_part].parent == Bare:
+                        self.current_equips[item.set_part] = item
+                        GameMaster.action_log.append("You equip a {}".format(item.name))
+                        if self.items[item] == 1:
+                            del self.items[item]
+                        else:
+                            self.items[item] -= 1
+                        return "success"
+                else:
+                    error_logger.error("{} {} found in inventory".format(self.items[item], item.name))
+                    del self.items[item]
+            else:
+                error_logger.error("trying to equip {}, which does not have a parent attribute".format(item))
+
+        def view(self):
+            # Returns a list of your current items and an informative string that will not be clickable
+            if len(self.items) != 0:
+                head_string = "You have:"
+            else:
+                head_string = "You have nothing at all, you poor peasant"
+            # Formatting the items to be grammatically proper
+            item_list = self.get_plural(self.items)
+            # Returning the items in the inventory
+            return head_string, item_list
+
+        def view_raw_names(self):
+            # Returns a list of all the object names in the inventory
+            item_list = []
+            for item in self.items:
+                item_list.append(item)
+
+            return item_list
+
+        # noinspection PyUnresolvedReferences
+        def view_equips(self):
+            # Returns a string with the current equips and the effects of the armor
+            # This code is messy, i don't want to talk about it
+            # It works(Probably)
+            effect_level_head = 1
+            effect_level_chest = 1
+            effect_level_legs = 1
+
+            if self.current_equips['head'].parent == self.current_equips['chest'].parent:
+                effect_level_head += 1
+                effect_level_chest += 1
+            if self.current_equips['head'].parent == self.current_equips['legs'].parent:
+                effect_level_head += 1
+                effect_level_legs += 1
+            if self.current_equips['chest'].parent == self.current_equips['legs'].parent:
+                effect_level_legs += 1
+                effect_level_chest += 1
+
+            if effect_level_chest == 3:
+                effect_level_chest += 2
+            if effect_level_head == 3:
+                effect_level_head += 2
+            if effect_level_legs == 3:
+                effect_level_legs += 2
+            head_string = "Equipment bonuses:\n"
+            armor_effect_descriptions = []
+            armor_effect_amounts = []
+            for set_part in self.current_equips:
+                if set_part == "head":
+                    __, amount, description = (self.current_equips[set_part].parent
+                                               .get_set_effect(self, head=True))
+                elif set_part == "chest":
+                    __, amount, description = (self.current_equips[set_part].parent
+                                               .get_set_effect(self, chest=True))
+                elif set_part == "legs":
+                    __, amount, description = (self.current_equips[set_part].parent
+                                               .get_set_effect(self, legs=True))
+                elif set_part == "left hand" or set_part == "right hand":
+                    pass
+                else:
+                    error_logger.error("A key dict which does not belong there is in current_equips: {}"
+                                       .format(self.current_equips))
+                    description = "Something has gone terribly wrong and will be fixed soon"
+                    amount = 0
+
+                # noinspection PyUnboundLocalVariable
+                armor_effect_descriptions.append(description)
+                # noinspection PyUnboundLocalVariable
+                armor_effect_amounts.append(amount)
+
+            armor_effect_amounts[0] *= effect_level_head
+            armor_effect_amounts[1] *= effect_level_chest
+            armor_effect_amounts[2] *= effect_level_legs
+
+            change = False
+            if armor_effect_descriptions[0] == armor_effect_descriptions[1]:
+                del armor_effect_descriptions[1]
+                armor_effect_amounts[0] += armor_effect_amounts[1]
+                del armor_effect_amounts[1]
+                change = True
+
+            if change:
+                if armor_effect_descriptions[0] == armor_effect_descriptions[1]:
+                    del armor_effect_descriptions[1]
+                    armor_effect_amounts[0] += armor_effect_amounts[1]
+                    del armor_effect_amounts[1]
+            else:
+                if armor_effect_descriptions[0] == armor_effect_descriptions[2]:
+                    del armor_effect_descriptions[2]
+                    armor_effect_amounts[0] += armor_effect_amounts[2]
+                    del armor_effect_amounts[2]
+                try:
+                    if armor_effect_descriptions[1] == armor_effect_descriptions[2]:
+                        del armor_effect_descriptions[2]
+                        armor_effect_amounts[1] += armor_effect_amounts[2]
+                        del armor_effect_amounts[2]
+                except IndexError:
+                    pass
+
+            armor_effect_descriptions = set(armor_effect_descriptions)
+            armor_effect_descriptions = list(armor_effect_descriptions)
+
+            for armor_effect in armor_effect_descriptions:
+                head_string = (head_string + armor_effect +
+                               str(abs(armor_effect_amounts[armor_effect_descriptions.index(armor_effect)])) + "\n")
+
+            head_string = head_string + "Current equips:"
+            return ['Head: {}'.format(self.current_equips['head'].name),
+                    'Chest: {}'.format(self.current_equips['chest'].name),
+                    'Legs: {}'.format(self.current_equips['legs'].name)], head_string
+
+    class Moves:
+        # A collection of all possible moves
+        # The general blueprint is:
+        # does an action based on why made the move (caster)
+        # creates a string to add to the action log and returns it
+        def __init__(self, parent):
+            self.parent = parent
+            self.supported_moves = {
+                     self.calming_heal:
+                     {
+                             'type': 'heal',
+                     },
+                     self.intense_heal:
+                     {
+                             'type': 'heal',
+                     }
+                 }
+
+        def add_move(self, new_move):
+            if new_move in self.supported_moves:
+                if new_move not in self.parent.unlocked_Moves:
+                    self.parent.unlocked_Moves[new_move] = {}
+                    self.parent.unlocked_Moves[new_move]['type'] = self.supported_moves[new_move]['type']
+                else:
+                    return "already_unlocked"
+            else:
+                error_logger.error("unknown move: {} at add_move".format(new_move.__name__))
+
+        def calming_heal(self):
+            amount_healed = int((self.parent.current_hp / 5) + (self.parent.max_hp / 10))
+            amount_healed = int(amount_healed * ((self.parent.calculate_stat_change(
+                                                  'intelligence', self.parent.intelligence) / 100) + 1))
+            self.parent.current_hp += amount_healed
+            if self.parent.current_hp >= self.parent.max_hp:
+                self.parent.current_hp = self.parent.max_hp
+            if self == player.moves:
+                player.new_awareness('increase', 1)
+                return "You heal for {} hp and feel a bit calmer".format(amount_healed)
+            else:
+                return "The enemy heals for {} hp".format(amount_healed)
+
+        def intense_heal(self):
+            amount_healed = int((self.parent.current_hp / 3) + (self.parent.max_hp / 4))
+            amount_healed = int(amount_healed * ((self.parent.calculate_stat_change(
+                                                  'intelligence', self.parent.intelligence) / 100) + 1))
+
+            self.parent.current_hp += amount_healed
+            if self.parent.current_hp >= self.parent.max_hp:
+                self.parent.current_hp = self.parent.max_hp
+            if self == player.moves:
+                return "You heal for {} hp".format(amount_healed)
+            else:
+                return "The enemy heals for {} hp".format(amount_healed)
+
+    def apply_effect(self, status, duration=0, effect_amount=0):
         if status in supported_Statuses:
             if status in self.Statuses:
+                if status == Statuses.stun:
+                    pass
                 self.Statuses[status]['duration'] += duration
                 self.Statuses[status]['amount'] += effect_amount
             else:
-                self.Statuses[status] = {}
-                self.Statuses[status]['duration'] = duration
-                self.Statuses[status]['amount'] = effect_amount
+                if status == Statuses.stun:
+                    self.Statuses[status] = {}
+                else:
+                    self.Statuses[status] = {}
+                    self.Statuses[status]['duration'] = duration
+                    self.Statuses[status]['amount'] = effect_amount
         else:
             error_logger.error("Unknown Effect: {}".format(status))
 
@@ -901,10 +1423,12 @@ class Character:
         else:
             error_logger.error("Unknown speed change type{}".format(change))
 
+
+
     def deal_damage(self, damage):
         self.current_enemy.current_hp -= damage
         if self.current_enemy.current_hp <= 0 and self.current_enemy != player:
-            player.Inventory.loot_drop(player.current_enemy)
+            player.loot_drop()
 
     def inspect(self, target):
         if self.gender == "male":
@@ -939,436 +1463,59 @@ class Character:
             current_states = ""
 
         # Applying buffs and debuffs to the values
-        temp_speed = self.speed
-        temp_awareness = self.awareness
-        temp_strength = self.strength
-        for status in self.Statuses:
-            if supported_Statuses[status]['head_type'] == "buff":
-                if supported_Statuses[status]['apply_type'] == "stronger_speed":
-                    temp_speed += self.Statuses[status]
-                elif supported_Statuses[status]['apply_type'] == "stronger_awareness":
-                    temp_awareness += self.Statuses[status]
-                elif supported_Statuses[status]['apply_type'] == "stronger_strength":
-                    temp_strength += self.Statuses[status]
+        temp_speed = self.calculate_stat_change('speed', self.speed)
+        temp_awareness = self.calculate_stat_change('awareness', self.awareness)
+        temp_strength = self.calculate_stat_change('strength', self.strength)
+        temp_intelligence = self.calculate_stat_change('intelligence', self.intelligence)
+        temp_dodge = self.calculate_stat_change('dodge', self.dodge)
+        temp_prot = self.calculate_stat_change('prot', self.prot)
+        temp_crit = self.calculate_stat_change('crit', self.crit)
+
+
 
         # Joining all the string together
         # Different depending on if the target is the player or the enemy
         if isinstance(target, Player):
-            return "You have {}/{} hp.\nYour current strength is {}.\nYou are currently {} and {}.{}" \
-                .format(self.current_hp, self.max_hp, temp_strength,
-                        self.awareness_level(custom_awareness=temp_awareness),
-                        self.speed_level(custom_speed=temp_speed), current_states)
-        else:
-            return ("{}.\n{} has {}/{} hp.\n{} strength is {}.\n{} is currently {} and {}.{}".format
-                    (self.description, self.name, self.current_hp, self.max_hp, gender_pronoun_1.capitalize(),
-                     temp_strength, gender_pronoun_2.capitalize(), self.awareness_level(temp_awareness),
-                     self.speed_level(temp_speed), current_states))
-
-    # noinspection PyUnresolvedReferences
-    def calculate_stat_change(self, stat, stat_value):
-        for status in self.Statuses:
-            if supported_Statuses[status]['apply_type'] == stat:
-                stat_value += player.Statuses[status]['amount']
-            elif supported_Statuses[status]['apply_type'] == stat:
-                stat_value -= player.Statuses[status]['amount']
-
-        # This code is messy, let's pray that it doesn't break
-        effect_level_head = 1
-        effect_level_chest = 1
-        effect_level_legs = 1
-        if player.Inventory.current_equips['head'].parent == player.Inventory.current_equips['chest'].parent:
-            effect_level_head += 1
-            effect_level_chest += 1
-        if player.Inventory.current_equips['head'].parent == player.Inventory.current_equips['legs'].parent:
-            effect_level_head += 1
-            effect_level_legs += 1
-        if player.Inventory.current_equips['chest'].parent == player.Inventory.current_equips['legs'].parent:
-            effect_level_legs += 1
-            effect_level_chest += 1
-        if effect_level_chest == 3:
-            effect_level_chest += 2
-        if effect_level_head == 3:
-            effect_level_head += 2
-        if effect_level_legs == 3:
-            effect_level_legs += 2
-
-        change_types = []
-        armor_effect_amounts = []
-        for set_part in player.Inventory.current_equips:
-            if set_part == "head":
-                change_type, amount, __ = (player.Inventory.current_equips[set_part].parent
-                                           .get_set_effect(player, head=True))
-            elif set_part == "chest":
-                change_type, amount, __ = (player.Inventory.current_equips[set_part].parent
-                                           .get_set_effect(player, chest=True))
-            elif set_part == "legs":
-                change_type, amount, __ = (player.Inventory.current_equips[set_part].parent
-                                           .get_set_effect(player, legs=True))
+            if GameMaster.settings['nerd mode']:
+                return "You have {}/{} hp.\nYour current strength is {}.\nYour current awareness is {} and " \
+                       "your speed is {}.{}" \
+                        .format(self.current_hp, self.max_hp, temp_strength,
+                                self.awareness, self.speed, current_states)
             else:
-                error_logger.error("A key dict which does not belong there is in current_equips: {}"
-                                   .format(player.Inventory.current_equips))
-                amount = 0
-                change_type = ""
-
-            change_types.append(change_type)
-            armor_effect_amounts.append(amount)
-
-        armor_effect_amounts[0] *= effect_level_head
-        armor_effect_amounts[1] *= effect_level_chest
-        armor_effect_amounts[2] *= effect_level_legs
-
-        change = False
-        if change_types[0] == change_types[1]:
-            del change_types[1]
-            armor_effect_amounts[0] += armor_effect_amounts[1]
-            del armor_effect_amounts[1]
-            change = True
-
-        if change:
-            if change_types[0] == change_types[1]:
-                del change_types[1]
-                armor_effect_amounts[0] += armor_effect_amounts[1]
-                del armor_effect_amounts[1]
+                return "You have {}/{} hp.\nYour current strength is {}.\nYou are currently {} and {}.{}" \
+                       .format(self.current_hp, self.max_hp, temp_strength,
+                               self.awareness_level(custom_awareness=temp_awareness),
+                               self.speed_level(custom_speed=temp_speed), current_states)
         else:
-            if change_types[0] == change_types[2]:
-                del change_types[2]
-                armor_effect_amounts[0] += armor_effect_amounts[2]
-                del armor_effect_amounts[2]
-            try:
-                if change_types[1] == change_types[2]:
-                    del change_types[2]
-                    armor_effect_amounts[1] += armor_effect_amounts[2]
-                    del armor_effect_amounts[2]
-            except IndexError:
-                pass
-
-        for change_type in change_types:
-            if change_type == stat:
-                stat_value += armor_effect_amounts[change_types.index(change_type)]
-
-        if stat_value > 100:
-            return 100
-        elif stat_value < -100:
-            return -100
-        else:
-            return stat_value
+            if GameMaster.settings['nerd mode']:
+                return ("{}.\n{} has {}/{} hp.\n{} strength is {}.\n{}'s awareness is currently {} and {} speed "
+                        "is {}.{}".format
+                        (self.description, self.name, self.current_hp, self.max_hp, gender_pronoun_1.capitalize(),
+                         temp_strength, gender_pronoun_1.capitalize(), gender_pronoun_1, self.awareness,
+                         self.speed, current_states))
+            else:
+                return ("{}.\n{} has {}/{} hp.\n{} strength is {}.\n{} is currently {} and {}.{}".format
+                        (self.description, self.name, self.current_hp, self.max_hp, gender_pronoun_1.capitalize(),
+                         temp_strength, gender_pronoun_2.capitalize(), self.speed_level(temp_speed),
+                         self.awareness_level(temp_awareness), current_states))
 
 
 class Player(Character):
-    unlocked_Moves = {}
-    Statuses = {}
-
-    strength = random.randint(5, 10)
-    max_hp = random.randint(25, 30)
-    current_hp = max_hp
-
     # noinspection PyMissingConstructor
-    def __init__(self):
-        self.name = "tester"
-        self.gender = "male"
-        self.awareness = 70
-        self.speed = 80
+    def __init__(self, name, gender):
+        super(Player, self).__init__(name, gender, random.randint(20, 80), random.randint(50, 80),
+                                     random.randint(5, 10), random.randint(0, 5), random.randint(1, 5),
+                                     random.randint(70, 100), random.randint(25, 30), random.randint(5, 10))
 
-    class Inventory:
-        items = {}
-        max_spaces = 10
-        current_equips = {'head': Leaves.Head, 'chest': Leaves.Chest, 'legs': Leaves.Legs}
-
-        # noinspection PyUnresolvedReferences
-        @staticmethod
-        def get_plural(words):
-            # Dicts are only used in the case of the player inventory
-            if isinstance(words, dict):
-                plural_words = []
-                for item in words:
-                    if words[item] > 1:
-                        if item.name[-1] == "h" or item.name[-1] == "H":
-                            plural_words.append('{} {}es'.format(words[item], item.name))
-                        # Some things shouldn't have s at the end, even in plural. Example: golds
-                        elif item.name not in GameMaster.no_s_at_end_exceptions:
-                            plural_words.append('{} {}s'.format(words[item], item.name))
-                        else:
-                            plural_words.append('{} {}'.format(words[item], item.name))
-                    else:
-                        plural_words.append('{} {}'.format(words[item], item.name))
-                return plural_words
-            else:
-                item = words
-                if isinstance(item, type):
-                    if item.name[-1] == "h" or item.name[-1] == "H":
-                        final_word = ('{}es'.format(item.name))
-                    # Some things shouldn't have s at the end, even in plural. Example: golds is wrong
-                    elif item.name not in GameMaster.no_s_at_end_exceptions:
-                        final_word = ('{}s'.format(item.name))
-                    else:
-                        final_word = ('{}'.format(item.name))
-                else:
-                    if item[-1] == "h" or item[-1] == "H":
-                        final_word = ('{}es'.format(item))
-                        # Some things shouldn't have s at the end, even in plural. Example: golds
-                    elif item not in GameMaster.no_s_at_end_exceptions:
-                        final_word = ('{}s'.format(item))
-                    else:
-                        final_word = ('{}'.format(item))
-
-                return final_word
-
-        @staticmethod
-        def unequip(slot: str):
-            if player.Inventory.current_equips[slot] != Bare:
-                try_unequip = Player.Inventory.add_item(player.Inventory.current_equips[slot])
-                if try_unequip == "bag_full":
-                    return
-                else:
-                    if slot == "head":
-                        player.Inventory.current_equips[slot] = Bare.Head
-                    elif slot == "chest":
-                        player.Inventory.current_equips[slot] = Bare.Chest
-                    elif slot == "legs":
-                        player.Inventory.current_equips[slot] = Bare.Legs
-                    else:
-                        error_logger.error("slot at unequip={}".format(slot))
-            else:
-                error_logger.error('Unhandled case of trying to unequip bare in the {} slot'.format(slot))
-
-        @staticmethod
-        def throw_away(item):
-            # Method for removing an item from the player's inventory
-            if item in player.Inventory.items:
-                # Checking if the item actually "exists", otherwise deletes it and logs it
-                if player.Inventory.items[item] <= 0:
-                    del player.Inventory.items[item]
-                    error_logger.error("An item of amount {} was found in inventory at throw_away".format(item))
-                elif player.Inventory.items[item] == 1:
-                    # If only one of the item exists, check if the player is sure
-                    # If the player does want to throw it away, it does so and informs the player via the action log
-                    confirmation = Console.interactive_choice(['Yes', 'No'],
-                                                              ('Are you sure that you want to throw away the {} ?'.
-                                                               format(item.name)),
-                                                              battle=True)
-                    if confirmation == "Yes":
-                        del player.Inventory.items[item]
-                        GameMaster.action_log.append("You threw away the {}".format(item.name))
-                        return "all"
-                    elif confirmation == "No":
-                        return
-                    else:
-                        error_logger.error('Unknown case "{}"'.format(confirmation))
-
-                else:
-                    amount = Console.interactive_choice(['all', 'specific amount'],
-                                                        'How many do you want to throw away?',
-                                                        battle=True, back_want=True)
-                    if amount == 'all':
-                        confirmation = (Console.interactive_choice
-                                        (['Yes', 'No'], ('Are you sure that you want to throw away all of the {} ?'.
-                                                         format(item.name)), battle=True))
-
-                        if confirmation == "Yes":
-                            GameMaster.action_log.append("You threw away all the {}".format(item.name))
-                            del player.Inventory.items[item]
-                            return 'all'
-                        elif confirmation == "No":
-                            return
-                        else:
-                            error_logger.error('Unknown case "{}"'.format(confirmation))
-                    elif amount == 'specific amount':
-                        if item.name in GameMaster.no_s_at_end_exceptions:
-                            head_string = "How much of the {} do you want to throw away?".format(player.Inventory.
-                                                                                                 get_plural(item.name))
-                        else:
-                            head_string = "How many of the {} do you want to throw away?".format(player.Inventory.
-                                                                                                 get_plural(item.name))
-
-                        while True:
-                            while True:
-                                Console.clear()
-                                amount_to_throw_away: int = input(head_string + "\n"
-                                                                  "If you do not want to throw away any, enter 0\n")
-                                if isint(amount_to_throw_away):
-                                    amount_to_throw_away = int(amount_to_throw_away)
-                                    break
-                            if amount_to_throw_away >= player.Inventory.items[item]:
-                                GameMaster.action_log.append("You threw away all the {}".format(item.name))
-                                del player.Inventory.items[item]
-                                return 'all'
-                            elif amount_to_throw_away <= 0:
-                                return
-                            else:
-                                (GameMaster.action_log.append("You threw away {} {}"
-                                                              .format(amount_to_throw_away,
-                                                                      player.Inventory.get_plural(item.name))))
-                                player.Inventory.items[item] -= amount_to_throw_away
-                                return
-
-            elif item in player.Inventory.current_equips:
-                # You can't throw away your own body
-                if player.Inventory.current_equips[item] in GameMaster.Bare_set:
-                    if item == "head":
-                        player.Inventory.current_equips[item] = Bare.Head
-                    elif item == "chest":
-                        player.Inventory.current_equips[item] = Bare.Chest
-                    elif item == "legs":
-                        player.Inventory.current_equips[item] = Bare.Legs
-
-            else:
-                error_logger.error("Trying to remove the item {}"
-                                   " that isn't in the inventory: {}".format(item, player.Inventory.items))
-
-        @staticmethod
-        def add_item(item, amount: int = 1):
-            current_weight = 0
-            if not len(Player.Inventory.items) == 0:
-                for thing in Player.Inventory.items:
-                    current_weight = current_weight + (thing.weight * Player.Inventory.items[thing])
-                if (current_weight + item.weight) <= Player.Inventory.max_spaces:
-                    if item not in Player.Inventory.items:
-                        Player.Inventory.items[item] = amount
-                    else:
-                        Player.Inventory.items[item] += amount
-                else:
-                    print("Your bag can't fit this item")
-                    return "bag_full"
-            else:
-                Player.Inventory.items[item] = amount
-
-        # Method for equipping an armor
-        @staticmethod
-        def equip(item):
-            # Checking if the item is an armor piece
-            if hasattr(item, "parent"):
-                # Checking that it exists
-                if not player.Inventory.items[item] <= 0:
-                    # noinspection PyUnresolvedReferences
-                    if player.Inventory.current_equips[item.set_part].parent == Bare:
-                        player.Inventory.current_equips[item.set_part] = item
-                        GameMaster.action_log.append("You equip a {}".format(item.name))
-                        if player.Inventory.items[item] == 1:
-                            del player.Inventory.items[item]
-                        else:
-                            player.Inventory.items[item] -= 1
-                        return "success"
-                else:
-                    error_logger.error("{} {} found in inventory".format(player.Inventory.items[item], item.name))
-                    del player.Inventory.items[item]
-            else:
-                error_logger.error("trying to equip {}, which does not have a parent attribute".format(item))
-
-        @staticmethod
-        def view():
-            # Returns a list of your current items and an informative string that will not be clickable
-            if len(player.Inventory.items) != 0:
-                head_string = "You have:"
-            else:
-                head_string = "You have nothing at all, you poor peasant"
-            # Formatting the items to be grammatically proper
-            item_list = player.Inventory.get_plural(player.Inventory.items)
-            # Returning the items in the inventory
-            return head_string, item_list
-
-        @staticmethod
-        def view_raw_names():
-            # Returns a list of all the object names in the inventory
-            item_list = []
-            for item in player.Inventory.items:
-                item_list.append(item)
-
-            return item_list
-
-        # noinspection PyUnresolvedReferences
-        @staticmethod
-        def view_equips():
-            # Returns a string with the player's current equips and the effects of the armor
-            # This code is messy, i don't want to talk about it
-            # It works(Probably)
-            effect_level_head = 1
-            effect_level_chest = 1
-            effect_level_legs = 1
-            if player.Inventory.current_equips['head'].parent == player.Inventory.current_equips['chest'].parent:
-                effect_level_head += 1
-                effect_level_chest += 1
-            if player.Inventory.current_equips['head'].parent == player.Inventory.current_equips['legs'].parent:
-                effect_level_head += 1
-                effect_level_legs += 1
-            if player.Inventory.current_equips['chest'].parent == player.Inventory.current_equips['legs'].parent:
-                effect_level_legs += 1
-                effect_level_chest += 1
-
-            if effect_level_chest == 3:
-                effect_level_chest += 2
-            if effect_level_head == 3:
-                effect_level_head += 2
-            if effect_level_legs == 3:
-                effect_level_legs += 2
-            head_string = "Equipment bonuses:\n"
-            armor_effect_descriptions = []
-            armor_effect_amounts = []
-            for set_part in player.Inventory.current_equips:
-                if set_part == "head":
-                    __, amount, description = (player.Inventory.current_equips[set_part].parent
-                                               .get_set_effect(player, head=True))
-                elif set_part == "chest":
-                    __, amount, description = (player.Inventory.current_equips[set_part].parent
-                                               .get_set_effect(player, chest=True))
-                elif set_part == "legs":
-                    __, amount, description = (player.Inventory.current_equips[set_part].parent
-                                               .get_set_effect(player, legs=True))
-                else:
-                    error_logger.error("A key dict which does not belong there is in current_equips: {}"
-                                       .format(player.Inventory.current_equips))
-                    description = "Something has gone terribly wrong and will be fixed soon"
-                    amount = 0
-
-                armor_effect_descriptions.append(description)
-                armor_effect_amounts.append(amount)
-
-            armor_effect_amounts[0] *= effect_level_head
-            armor_effect_amounts[1] *= effect_level_chest
-            armor_effect_amounts[2] *= effect_level_legs
-
-            change = False
-            if armor_effect_descriptions[0] == armor_effect_descriptions[1]:
-                del armor_effect_descriptions[1]
-                armor_effect_amounts[0] += armor_effect_amounts[1]
-                del armor_effect_amounts[1]
-                change = True
-
-            if change:
-                if armor_effect_descriptions[0] == armor_effect_descriptions[1]:
-                    del armor_effect_descriptions[1]
-                    armor_effect_amounts[0] += armor_effect_amounts[1]
-                    del armor_effect_amounts[1]
-            else:
-                if armor_effect_descriptions[0] == armor_effect_descriptions[2]:
-                    del armor_effect_descriptions[2]
-                    armor_effect_amounts[0] += armor_effect_amounts[2]
-                    del armor_effect_amounts[2]
-                try:
-                    if armor_effect_descriptions[1] == armor_effect_descriptions[2]:
-                        del armor_effect_descriptions[2]
-                        armor_effect_amounts[1] += armor_effect_amounts[2]
-                        del armor_effect_amounts[2]
-                except IndexError:
-                    pass
-
-            for armor_effect in armor_effect_descriptions:
-                head_string = (head_string + armor_effect +
-                               str(abs(armor_effect_amounts[armor_effect_descriptions.index(armor_effect)])) + "\n")
-
-            head_string = head_string + "Current equips:"
-            return ['Head: {}'.format(Player.Inventory.current_equips['head'].name),
-                    'Chest: {}'.format(Player.Inventory.current_equips['chest'].name),
-                    'Legs: {}'.format(Player.Inventory.current_equips['legs'].name)], head_string
-
-        @staticmethod
-        def loot_drop(enemy):
-            print('You successfully defeated {}!'.format(enemy))
-            dropped_items = {}
-            if Gold.rarity >= random.randint(0, 100):
-                dropped_items[Gold] = random.randint(enemy.rank * 25, enemy.rank * 100)
-            for drop in enemy.drops:  # last
-                if drop.rarity >= random.randint(0, 100):
-                    dropped_items[drop] = int(drop.rarity * (enemy.rank * 0.5))
+    @staticmethod
+    def loot_drop():
+        print('You successfully defeated {}!'.format(player.current_enemy))
+        dropped_items = {}
+        if Gold.rarity >= random.randint(0, 100):
+            dropped_items[Gold] = random.randint(player.current_enemy.rank * 25, player.current_enemy.rank * 100)
+        for drop in player.current_enemy.drops:  # last
+            if drop.rarity >= random.randint(0, 100):
+                dropped_items[drop] = int(drop.rarity * (player.current_enemy.rank * 0.5))
 
     def speed_level(self, custom_speed=None, list_position=False):
         return super(Player, self).speed_level(custom_speed=custom_speed, list_position=list_position)
@@ -1400,42 +1547,8 @@ class Player(Character):
         time.sleep(5)
         main_menu()
 
-    @staticmethod
-    def add_move(new_move):
-        if new_move in supported_moves:
-            if new_move not in player.unlocked_Moves:
-                player.unlocked_Moves[new_move] = {}
-                player.unlocked_Moves[new_move]['type'] = supported_moves[new_move]['type']
-            else:
-                return "already_unlocked"
-        else:
-            error_logger.error("unknown move: {} at add_move".format(new_move.__name__))
-
 
 class Enemy(Character):
-    Statuses = {}
-    unlocked_Moves = {}
-
-    # noinspection PyMissingConstructor
-    def __init__(self, rank: int, name: str, description: str, speed: int, awareness: int, gender: str, *drops,
-                 injured: float = False):
-        self.current_hp = (int(player.current_hp * (rank * 0.5)) - random.randint(-3, 5))
-        if injured:
-            self.current_hp = int(self.current_hp * injured)
-        self.max_hp = int(player.current_hp * (rank * 0.5)) + (random.randint(-int(player.max_hp * 0.3),
-                                                                              int(player.max_hp * 0.3)))
-        if self.current_hp > self.max_hp:
-            self.current_hp = self.max_hp
-        self.strength = round(player.max_hp * (rank * 0.1)) + rank * 2
-        self.awareness = awareness
-        self.name = name
-        self.description = description
-        self.speed = speed
-        self.gender = gender
-        self.drops = []
-        for item in drops:
-            self.drops.append(item)
-
     def speed_level(self, custom_speed=None, list_position=False):
         return super(Enemy, self).speed_level(custom_speed=custom_speed, list_position=list_position)
 
@@ -1450,34 +1563,149 @@ class Enemy(Character):
 
 
 class Orc(Enemy):
+    def __init__(self, rank: int, name: str, gender, description: str, dodge: int, speed: int, intelligence: int,
+                 prot: int, crit, awareness: int, *drops, injured: float = False):
+
+        self.rank = rank
+        max_hp = int(player.current_hp * (rank * 0.5)) + (random.randint(-int(player.max_hp * 0.3),
+                                                                         int(player.max_hp * 0.3)))
+        strength = round(player.max_hp * (rank * 0.1)) + rank * 2
+
+        dodge += random.randint(-20, -40)
+        if dodge < 0:
+            dodge = 0
+
+        prot += random.randint(15, 50)
+        if prot > 80:
+            prot = 80
+
+        intelligence += random.randint(-20, -70)
+        if intelligence < 0:
+            intelligence = 0
+
+        self.drops = []
+        for item in drops:
+            self.drops.append(item)
+        super(Orc, self).__init__(name, gender, dodge, speed, intelligence, prot, crit, awareness, max_hp,
+                                  strength, description=description)
+
+        self.current_hp += random.randint(round(-3 * (self.rank * 0.5)), round(5 * (self.rank * 0.5)))
+
+        if self.current_hp > self.max_hp:
+            self.current_hp = self.max_hp
+
+        if injured:
+            self.current_hp = int(self.current_hp * injured)
+
     resistances = {
-        Statuses.apply_on_fire: 0,
         Statuses.apply_bleed: 0,
-        Statuses.apply_weak: 0,
     }
 
 
 class Animal(Enemy):
+    def __init__(self, rank: int, name: str, gender, description: str, dodge: int, speed: int, intelligence: int,
+                 prot: int, crit, awareness: int, *drops, injured: float = False):
+
+        self.rank = rank
+        max_hp = int(player.current_hp * (rank * 0.5)) + (random.randint(-int(player.max_hp * 0.3),
+                                                                         int(player.max_hp * 0.3)))
+        strength = round(player.max_hp * (rank * 0.1)) + rank * 2
+
+        self.drops = []
+        for item in drops:
+            self.drops.append(item)
+        super(Animal, self).__init__(name, gender, dodge, speed, intelligence, prot, crit, awareness, max_hp,
+                                     strength, description=description)
+
+        self.current_hp += random.randint(round(-3 * (self.rank * 0.5)), round(5 * (self.rank * 0.5)))
+
+        if self.current_hp > self.max_hp:
+            self.current_hp = self.max_hp
+
+        if injured:
+            self.current_hp = int(self.current_hp * injured)
+
     resistances = {
-        Statuses.apply_on_fire: 0,
         Statuses.apply_bleed: 0,
-        Statuses.apply_weak: 0,
     }
 
 
 class Human(Enemy):
+    def __init__(self, rank: int, name: str, gender, description: str, dodge: int, speed: int, intelligence: int,
+                 prot: int, crit, awareness: int, *drops, injured: float = False):
+
+        self.rank = rank
+        max_hp = int(player.current_hp * (rank * 0.5)) + (random.randint(-int(player.max_hp * 0.3),
+                                                                         int(player.max_hp * 0.3)))
+        strength = round(player.max_hp * (rank * 0.1)) + rank * 2
+
+        dodge += random.randint(-10, 25)
+        if dodge < 0:
+            dodge = 0
+
+        prot += random.randint(10, -10)
+        if prot > 80:
+            prot = 80
+
+        intelligence += random.randint(round(rank * 5), round(rank * 20))
+        if intelligence < 0:
+            intelligence = 0
+
+        self.drops = []
+        for item in drops:
+            self.drops.append(item)
+        super(Human, self).__init__(name, gender, dodge, speed, intelligence, prot, crit, awareness, max_hp,
+                                    strength, description=description)
+
+        self.current_hp += random.randint(round(-3 * (self.rank * 0.5)), round(5 * (self.rank * 0.5)))
+
+        if self.current_hp > self.max_hp:
+            self.current_hp = self.max_hp
+
+        if injured:
+            self.current_hp = int(self.current_hp * injured)
+
     resistances = {
-        Statuses.apply_on_fire: 0,
         Statuses.apply_bleed: 0,
-        Statuses.apply_weak: 0,
     }
 
 
 class Skeleton(Enemy):
+    def __init__(self, rank: int, name: str, gender, description: str, dodge: int, speed: int, intelligence: int,
+                 prot: int, crit, awareness: int, *drops, injured: float = False):
+
+        self.rank = rank
+        max_hp = int(player.current_hp * (rank * 0.5)) + (random.randint(-int(player.max_hp * 0.3),
+                                                                         int(player.max_hp * 0.3)))
+        strength = round(player.max_hp * (rank * 0.1)) + rank * 2
+
+        dodge += random.randint(10, 25)
+        if dodge < 0:
+            dodge = 0
+
+        intelligence -= random.randint(round(rank * 3), round(rank * 10))
+
+        prot += random.randint(-10, -50)
+        if prot > 80:
+            prot = 80
+
+        self.drops = []
+        for item in drops:
+            self.drops.append(item)
+        super(Skeleton, self).__init__(name, gender, dodge, speed, intelligence, prot, crit, awareness, max_hp,
+                                       strength, description=description)
+
+        self.current_hp += random.randint(round(-3 * (self.rank * 0.5)), round(5 * (self.rank * 0.5)))
+
+        if self.current_hp > self.max_hp:
+            self.current_hp = self.max_hp
+
+        if injured:
+            self.current_hp = int(self.current_hp * injured)
+
     resistances = {
-        Statuses.apply_on_fire: 0,
-        Statuses.apply_bleed: 0,
-        Statuses.apply_weak: 0,
+        Statuses.apply_bleed: 100,
+        Statuses.stun: 100
     }
 
 
@@ -1510,23 +1738,26 @@ def combat(enemy, location):
     player.current_enemy, enemy.current_enemy = enemy, player
     print("{} approaches!".format(enemy.name))
 
-    print(1)
-
     def player_turn():
         print("player")
         for status in list(player.Statuses):
-            player.Statuses[status] -= 1
-            if player.Statuses[status] <= 0:
-                del player.Statuses[status]
+            try:
+                player.Statuses[status]['duration'] -= 1
+                if player.Statuses[status]['duration'] <= 0:
+                    del player.Statuses[status]
+            except TypeError:
+                pass
 
         for status in player.Statuses:
             if supported_Statuses[status]['apply_type'] == "start_dot":
                 damage = status(player)
-                GameMaster.action_log.append("{} {} damage.You have {} hp left".format
-                                             (supported_Statuses[status]['on_apply_message_player'], damage,
-                                              player.current_hp))
+                GameMaster.action_log.append("{} {} damage.".format
+                                             (supported_Statuses[status]['on_apply_message_player'], damage))
                 GameMaster.last_damage_player = supported_Statuses[status]['type']
+                player.current_hp -= damage
                 player.alive_check()
+
+        info_logger.info(GameMaster.action_log)
 
         def main_choice():
 
@@ -1549,7 +1780,7 @@ def combat(enemy, location):
                                                            "Click on the move you want to use\nAvailable Moves:",
                                                            back_want=True, battle=True)
                     if move is not None:
-                        move_result: str = available_moves[pretty_moves.index(move)](player)
+                        move_result: str = available_moves[pretty_moves.index(move)]()
                     else:
                         move_result = None
                     if move_result is not None:
@@ -1607,20 +1838,26 @@ def combat(enemy, location):
 
                 # The equivalent of inspect
                 elif action == 6:
-                    inspectable_objects = ['yourself', '{}'.format(player.current_enemy.name)]
-                    to_inspect = Console.interactive_choice(inspectable_objects, ('Which one of these do you '
-                                                                                  'want to inspect?'),
-                                                            battle=True, back_want=True)
-                    if to_inspect == "yourself":
-                        while True:
-                            break_local = Console.interactive_choice(["I'm done"], player.inspect(player),
-                                                                     battle=True)
-                            if break_local == "I'm done":
-                                break
+                    while True:
+                        inspectable_objects = ['yourself', '{}'.format(player.current_enemy.name)]
+                        to_inspect = Console.interactive_choice(inspectable_objects, ('Which one of these do you '
+                                                                                      'want to inspect?'),
+                                                                battle=True, back_want=True)
+                        if to_inspect == "yourself":
 
-                    elif to_inspect == "{}".format(player.current_enemy.name):
-                        Console.interactive_choice(["I'm done"], player.current_enemy.inspect(enemy),
-                                                   battle=True)
+                                Console.interactive_choice(["I'm done"], player.inspect(player),
+                                                           battle=True)
+
+                        elif to_inspect == "{}".format(player.current_enemy.name):
+                            Console.interactive_choice(["I'm done"], player.current_enemy.inspect(enemy),
+                                                       battle=True)
+
+                        # Back selected
+                        elif to_inspect is None:
+                            break
+
+                        else:
+                            error_logger.error("Unknown case at inspect: {}".format(to_inspect))
 
                 # The equivalent of help
                 if action == 7:
@@ -1707,7 +1944,7 @@ def combat(enemy, location):
                         elif case_inventory == "Current equips":
                             while True:
                                 # Getting the current equips
-                                case_list, head_string = Player.Inventory.view_equips()
+                                case_list, head_string = player.inventory.view_equips()
                                 # Asking what equip they want to view
                                 # We will be using a text changing depending on the equip as the case
                                 # Therefore, we will enumerate the cases
@@ -1718,46 +1955,46 @@ def combat(enemy, location):
                                 # noinspection PyUnresolvedReferences
                                 def handle_slot(slot: str, joke_text: str = ''):
                                     if slot == "head":
-                                        slot_dict = (Player.Inventory.current_equips
+                                        slot_dict = (player.inventory.current_equips
                                                      [slot].parent.get_set_part_description
-                                                     (Player.Inventory.current_equips[slot], player))
+                                                     (player.inventory.current_equips[slot], player))
                                     elif slot == "chest":
-                                        slot_dict = (Player.Inventory.current_equips
+                                        slot_dict = (player.inventory.current_equips
                                                      [slot].parent.get_set_part_description
-                                                     (Player.Inventory.current_equips[slot], player))
+                                                     (player.inventory.current_equips[slot], player))
                                     elif slot == "legs":
-                                        slot_dict = (Player.Inventory.current_equips
+                                        slot_dict = (player.inventory.current_equips
                                                      [slot].parent.get_set_part_description
-                                                     (Player.Inventory.current_equips[slot], player))
+                                                     (player.inventory.current_equips[slot], player))
                                     else:
                                         error_logger.error("Unknown slot type at handle_slot:{}".format(slot))
                                         slot_dict = {'sorry': 'something failed miserably and it has been noted'}
                                     slot_actions = []
-                                    if not Player.Inventory.current_equips[slot] in GameMaster.Bare_set:
+                                    if not player.inventory.current_equips[slot] in GameMaster.Bare_set:
                                         slot_actions.append('Throw away')
                                     slot_actions.append('Unequip')
                                     decision = Console.interactive_choice(slot_actions,
                                                                           slot_dict,
                                                                           battle=True, back_want=True)
                                     if decision == "Unequip":
-                                        if not Player.Inventory.current_equips[slot] in GameMaster.Bare_set:
-                                            Player.Inventory.unequip(slot)
+                                        if not player.inventory.current_equips[slot] in GameMaster.Bare_set:
+                                            player.inventory.unequip(slot)
                                         else:
                                             player.dead(None, custom_text=joke_text)
 
                                     elif decision == "Throw away":
-                                        player.Inventory.throw_away(slot)
+                                        player.inventory.throw_away(slot)
 
                                 # The equivalent of head
                                 if numbered_case == 0:
-                                    if player.Inventory.current_equips['head'] == Bare.Head:
+                                    if player.inventory.current_equips['head'] == Bare.Head:
                                         handle_slot('head', joke_text='You dismember your own head and die immediately')
                                     else:
                                         handle_slot('head')
 
                                 # The equivalent of chest
                                 elif numbered_case == 1:
-                                    if player.Inventory.current_equips['chest'] == Bare.Chest:
+                                    if player.inventory.current_equips['chest'] == Bare.Chest:
                                         handle_slot('chest',
                                                     joke_text='How do you even manage to dismember your whole torso?!')
                                     else:
@@ -1765,7 +2002,7 @@ def combat(enemy, location):
 
                                 # The equivalent of legs
                                 elif numbered_case == 2:
-                                    if player.Inventory.current_equips['legs'] == Bare.Legs:
+                                    if player.inventory.current_equips['legs'] == Bare.Legs:
                                         handle_slot('legs',
                                                     joke_text='You dismember your legs and slowly die from blood loss')
                                     else:
@@ -1776,8 +2013,8 @@ def combat(enemy, location):
                                     break
                         elif case_inventory == "Items":
                             while True:
-                                head_string, inventory_items = player.Inventory.view()
-                                raw_inventory_items = player.Inventory.view_raw_names()
+                                head_string, inventory_items = player.inventory.view()
+                                raw_inventory_items = player.inventory.view_raw_names()
                                 item_to_inspect: str = Console.interactive_choice(inventory_items, head_string,
                                                                                   battle=True, back_want=True)
 
@@ -1793,8 +2030,13 @@ def combat(enemy, location):
                                                                    [inventory_items.index(item_to_inspect)]))
                                 except (AttributeError, ValueError):
                                     if item_to_inspect is not None:
-                                        description = (raw_inventory_items[inventory_items.index(item_to_inspect)].
-                                                       inspect())
+                                        if hasattr(raw_inventory_items[inventory_items.index(item_to_inspect)],
+                                                   'parent'):
+                                            description = (raw_inventory_items[inventory_items.index(item_to_inspect)].
+                                                           parent.inspect())
+                                        else:
+                                            description = (raw_inventory_items[inventory_items.index(item_to_inspect)].
+                                                           inspect())
                                     else:
                                         description = "Something went wrong under Inventory -> items"
 
@@ -1814,13 +2056,13 @@ def combat(enemy, location):
                                     if item_interaction is None:
                                         break
                                     elif item_interaction == "throw away":
-                                        thrown_away = player.Inventory.throw_away(raw_inventory_items
+                                        thrown_away = player.inventory.throw_away(raw_inventory_items
                                                                                   [inventory_items.index
                                                                                    (item_to_inspect)])
                                         if thrown_away == "all":
                                             break
                                     elif item_interaction == "equip":
-                                        result = player.Inventory.equip(raw_inventory_items
+                                        result = player.inventory.equip(raw_inventory_items
                                                                         [inventory_items.index
                                                                          (item_to_inspect)])
                                         if result == "success":
@@ -1868,39 +2110,52 @@ def combat(enemy, location):
 
         print("enemy")
         print("\n")
+        time.sleep(1)
 
     while True:
-        if (player.awareness * 100) >= random.randint(0, 100):
+        if (player.awareness + random.randint(0, 100)) >= (player.current_enemy.awareness + random.randint(0, 100)):
             player_first = True
         else:
             player_first = False
         while True:
             if player_first:
-                player_turn()
-                enemy_turn()
+                if Statuses.stun in player.Statuses:
+                    GameMaster.action_log.append(supported_Statuses[Statuses.stun]['on_apply_message_player'])
+                    del player.Statuses[Statuses.stun]
+                else:
+                    player_turn()
+
+                if Statuses.stun in player.current_enemy.Statuses:
+                    GameMaster.action_log.append(supported_Statuses[Statuses.stun]
+                                                 ['on_apply_message_enemy'].format(enemy.name))
+                    del enemy.Statuses[Statuses.stun]
+                else:
+                    enemy_turn()
+
             else:
-                enemy_turn()
-                player_turn()
+                if Statuses.stun in player.current_enemy.Statuses:
+                    GameMaster.action_log.append(supported_Statuses[Statuses.stun]
+                                                 ['on_apply_message_enemy'].format(enemy.name))
+                    del enemy.Statuses[Statuses.stun]
+                else:
+                    enemy_turn()
 
-            temp_player_speed = int(player.speed)
-            temp_enemy_speed = int(enemy.speed)
+                if Statuses.stun in player.Statuses:
+                    GameMaster.action_log.append(supported_Statuses[Statuses.stun]['on_apply_message_player'])
+                    del player.Statuses[Statuses.stun]
+                else:
+                    player_turn()
 
-            for effect in player.Statuses:
-                if supported_Statuses[effect]['apply_type'] == 'weaker_speed':
-                    temp_player_speed = effect(temp_player_speed)
-
-            for effect in enemy.Statuses:
-                if supported_Statuses[effect]['apply_type'] == 'weaker_speed':
-                    temp_enemy_speed = effect(temp_enemy_speed)
+            temp_player_speed = player.calculate_stat_change('speed', player.speed)
+            temp_enemy_speed = enemy.calculate_stat_change('speed', enemy.speed)
 
             if random.randint(random.randint(int((temp_player_speed / 3)), (temp_player_speed - 10)),
                               temp_player_speed * 2) >= \
-                    random.randint(random.randint(int((temp_enemy_speed / 3)), (temp_enemy_speed - 10)),
-                                   temp_enemy_speed * 2):
+                random.randint(random.randint(int((temp_enemy_speed / 3)), (temp_enemy_speed - 10)),
+                               temp_enemy_speed * 2):
                 player_first = True
             else:
                 player_first = False
-            time.sleep(2)
 
 
 def on_start():
@@ -1988,19 +2243,30 @@ def on_start():
         GameMaster.console_height_x = 980
         GameMaster.console_height_y = 524
 
+    Console.console_location_reset()
     return error_log, info_log
 
 
 if __name__ == '__main__':
     # Setting some variables to be used during runtime
+    # Along with setting up some loggers
     error_logger, info_logger = on_start()
-    player = Player()
+
+    # Initiating everything
+    player = Player('Tester', 'male')
+    player.inventory = player.Inventory(player)
+    player.moves = player.Moves(player)
+
     # Initiating colorama so that we can color console output
     colorama.init()
-    hen = Enemy(1, 'Gullbert the hen', 'A hen', 40, 20, 'male', "feather", "radish")
-    player.add_move(Moves.calming_heal)
-    player.add_move(Moves.intense_heal)
-    hen.apply_effect(Statuses.apply_frozen, 10, 50)
-    Console.console_location_reset()
-    player.Inventory.add_item(Gold, 10)
+
+    # Debug
+    hen = Animal(1, 'Gullbert the hen', 'male', 'A hen', 15, 40, 2, 0, 3, 20)
+    hen.inventory = hen.Inventory(hen)
+    hen.moves = hen.Moves(hen)
+    player.moves.add_move(player.moves.calming_heal)
+    player.moves.add_move(player.moves.intense_heal)
+    hen.apply_effect(Statuses.stun)
+    player.apply_effect(Statuses.apply_bleed, 10)
+    player.inventory.add_item(Gold, 10)
     combat(hen, "swamp")
