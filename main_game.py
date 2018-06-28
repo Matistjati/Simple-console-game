@@ -1,5 +1,6 @@
 # Better drop system
 # Fix back windows 10
+# Inspect non nerd mode enemy
 import pickle
 import random
 import time
@@ -30,6 +31,10 @@ def isint(variable_to_test):
     except ValueError:
         return False
 
+def play_wav(file_name):
+    project_path = os.path.dirname(sys.argv[0])
+
+    os.system("start {}\\Scripts\\play_wav.pyw {}\\Audio\\{}".format(project_path, project_path, file_name))
 
 class Console:
     # A class for collecting all methods related to the console
@@ -221,6 +226,12 @@ class Console:
         # If battle is True, an enemy must be supplied and print_with_layout will use the battle layout
         # If back_want is True, a back option will be added
         # Returns the name of the string clicked(or None, signaling that back was clicked)
+        GameMaster.last_interactive_choice_call['cases'] = cases
+        GameMaster.last_interactive_choice_call['head_string'] = head_string
+        GameMaster.last_interactive_choice_call['back_want'] = back_want
+        GameMaster.last_interactive_choice_call['battle'] = battle
+        GameMaster.last_interactive_choice_call['enumerated'] = enumerated
+
         def move_to_string():
             # Formatting the string to be printed
             string_output = head_string
@@ -722,6 +733,7 @@ Fist = Weapon('Fist', 0, 0, 'weapon', 3, 'A plain old fist', 0, 0, 3)
 
 class GameMaster:
     # This is the class where we store data which do not make sense to contain in the player class
+    last_interactive_choice_call = {'cases': [], 'head_string': '', 'battle': False}
     settings = {}
     Bare_set = (Bare.Head, Bare.Chest, Bare.Legs)
     no_s_at_end_exceptions = ('Gold',)
@@ -730,6 +742,21 @@ class GameMaster:
     vowels = ("a", "o", "u", "e", "i")
     action_log = ['               ', '               ', '               ', '               ', '               ',
                   '               ']
+
+    def extend_action_log(self, new_action):
+        if len(new_action) > 56:
+            self.action_log.append('Message too long. Show the developer your error log')
+            error_logger.error("Message longer than 56 chars found at action_log: {}. len: {}".format(new_action,
+                                                                                                      len(new_action)))
+        else:
+            self.action_log.append(new_action)
+            if self.last_interactive_choice_call['head_string'] != "":
+                extra_text = self.last_interactive_choice_call['head_string']
+                for option in self.last_interactive_choice_call['cases']:
+                    extra_text += "\n*" + option
+                Console.print_with_layout(extra_text=extra_text, battle=self.last_interactive_choice_call['battle'])
+                time.sleep(1)
+
     game_state = {}
     statistics = {}
     y_to_console = 0
@@ -749,6 +776,8 @@ class Character:
     def __init__(self, name, gender, dodge, speed, intelligence, prot,
                  crit, awareness, max_hp, strength, description=""):
         self.name = name
+        name_split = name.split()
+        self.first_name = name_split[0]
         self.gender = gender
         self.intelligence = intelligence
         self.dodge = dodge
@@ -763,7 +792,6 @@ class Character:
         self.description = ""
         self.Statuses = {}
         self.current_enemy = None
-        self.unlocked_Moves = {}
         self.description = description
 
     # noinspection PyUnresolvedReferences
@@ -1034,7 +1062,7 @@ class Character:
                                                               battle=True)
                     if confirmation == "Yes":
                         del self.items[item]
-                        GameMaster.action_log.append("You threw away the {}".format(item.name))
+                        GameMaster.extend_action_log("You threw away the {}".format(item.name))
                         return "all"
                     elif confirmation == "No":
                         return
@@ -1051,7 +1079,7 @@ class Character:
                                                          format(item.name)), battle=True))
 
                         if confirmation == "Yes":
-                            GameMaster.action_log.append("You threw away all the {}".format(item.name))
+                            GameMaster.extend_action_log("You threw away all the {}".format(item.name))
                             del self.items[item]
                             return 'all'
                         elif confirmation == "No":
@@ -1075,13 +1103,13 @@ class Character:
                                     amount_to_throw_away = int(amount_to_throw_away)
                                     break
                             if amount_to_throw_away >= self.items[item]:
-                                GameMaster.action_log.append("You threw away all the {}".format(item.name))
+                                GameMaster.extend_action_log("You threw away all the {}".format(item.name))
                                 del self.items[item]
                                 return 'all'
                             elif amount_to_throw_away <= 0:
                                 return
                             else:
-                                (GameMaster.action_log.append("You threw away {} {}"
+                                (GameMaster.extend_action_log("You threw away {} {}"
                                                               .format(amount_to_throw_away,
                                                                       self.get_plural(item.name))))
                                 self.items[item] -= amount_to_throw_away
@@ -1131,7 +1159,7 @@ class Character:
                     # noinspection PyUnresolvedReferences
                     if self.current_equips[item.set_part].parent == Bare:
                         self.current_equips[item.set_part] = item
-                        GameMaster.action_log.append("You equip a {}".format(item.name))
+                        GameMaster.extend_action_log("You equip a {}".format(item.name))
                         if self.items[item] == 1:
                             del self.items[item]
                         else:
@@ -1261,6 +1289,7 @@ class Character:
         # creates a string to add to the action log and returns it
         def __init__(self, parent):
             self.parent = parent
+            self.unlocked_Moves = {}
             self.supported_moves = {
                      self.calming_heal:
                      {
@@ -1274,9 +1303,9 @@ class Character:
 
         def add_move(self, new_move):
             if new_move in self.supported_moves:
-                if new_move not in self.parent.unlocked_Moves:
-                    self.parent.unlocked_Moves[new_move] = {}
-                    self.parent.unlocked_Moves[new_move]['type'] = self.supported_moves[new_move]['type']
+                if new_move not in self.unlocked_Moves:
+                    self.unlocked_Moves[new_move] = {}
+                    self.unlocked_Moves[new_move]['type'] = self.supported_moves[new_move]['type']
                 else:
                     return "already_unlocked"
             else:
@@ -1289,11 +1318,26 @@ class Character:
             self.parent.current_hp += amount_healed
             if self.parent.current_hp >= self.parent.max_hp:
                 self.parent.current_hp = self.parent.max_hp
+            awareness_bonus = 20
+            self.parent.awareness += awareness_bonus
             if self == player.moves:
-                player.new_awareness('increase', 1)
-                return "You heal for {} hp and feel a bit calmer".format(amount_healed)
+                if GameMaster.settings['nerd mode']:
+                    return "You heal for {} hp and your awareness increases by {}".format(amount_healed,
+                                                                                          awareness_bonus)
+                else:
+                    return "You heal for {} hp and feel a bit calmer".format(amount_healed)
             else:
-                return "The enemy heals for {} hp".format(amount_healed)
+                if self.parent.gender == "male":
+                    gender_pronoun = "his"
+                else:
+                    gender_pronoun = "her"
+                if GameMaster.settings['nerd mode']:
+                    return "{} heals {} hp and {} awareness is raised by {}".format(self.parent.first_name,
+                                                                                    amount_healed,
+                                                                                    gender_pronoun,
+                                                                                    awareness_bonus)
+                else:
+                    return "{} heals for {} hp and becomes calmer".format(self.parent.first_name, amount_healed)
 
         def intense_heal(self):
             amount_healed = int((self.parent.current_hp / 3) + (self.parent.max_hp / 4))
@@ -1306,7 +1350,7 @@ class Character:
             if self == player.moves:
                 return "You heal for {} hp".format(amount_healed)
             else:
-                return "The enemy heals for {} hp".format(amount_healed)
+                return "{} enemy heals for {} hp".format(self.parent.first_name, amount_healed)
 
     def apply_effect(self, status, duration=0, effect_amount=0):
         if status in supported_Statuses:
@@ -1330,100 +1374,61 @@ class Character:
 
     awareness_hierarchy = (20, 30, 60, 80, 90, 95)
 
-    def awareness_level(self, custom_awareness=None, list_position=False):
-        if list_position:
-            return self.awareness_hierarchy.index(closest_match(self.awareness, self.awareness_hierarchy))
-        if custom_awareness is None:
-            return self.awareness_levels[min(list(self.awareness_levels.keys()), key=lambda x: abs(x - self.awareness))]
-        else:
-            return self.awareness_levels[
-                min(list(self.awareness_levels.keys()), key=lambda x: abs(x - custom_awareness))]
-
-    def new_awareness(self, change, amount=0):
-        if change == "increase":
-            if amount != 0:
-                temp_awareness = self.awareness_level(list_position=True)
-                if temp_awareness + amount > (len(self.awareness_hierarchy) - 1):
-                    return
-                else:
-                    self.awareness = self.awareness_hierarchy[temp_awareness + amount]
-
-            else:
-                try:
-                    self.awareness = self.awareness_hierarchy[self.awareness_level(list_position=True) + 1]
-                except IndexError:
-                    return
-        elif change == "decrease":
-            if amount != 0:
-                temp_awareness = self.awareness_hierarchy.index(closest_match(self.awareness,
-                                                                              self.awareness_hierarchy))
-                if temp_awareness - amount < 0:
-                    return
-                else:
-                    self.awareness = self.awareness_hierarchy[self.awareness_level(list_position=True) - amount]
-            else:
-                try:
-                    self.awareness = self.awareness_hierarchy[self.awareness_level(list_position=True) - 1]
-                except IndexError:
-                    return
-        elif change == "specific":
-            if amount != 0 and 100 >= amount >= 0:
-                self.awareness = amount
-            else:
-                error_logger.error("Invalid custom awareness:{}".format(amount))
-        else:
-            error_logger.error("Unknown awareness change type{}".format(change))
-
     speed_levels = {90: "fast as fuck boiii", 80: "fast", 70: "fleet",
                     40: "tired", 30: "sluggish", 20: "injured"}
 
     speed_hierarchy = (20, 30, 40, 70, 80, 90)
 
-    def speed_level(self, custom_speed=None, list_position=False):
+    crit_levels = {33: 'very likely', 20: 'highly likely', 10: 'likely', 5: 'unlikely', 2: 'very unlikely'}
+
+    crit_hierarchy = (33, 20, 10, 5, 2)
+
+    dodge_levels = {80: 'very likely', 60: 'highly likely', 45: 'likely', 20: 'unlikely', 10: 'very unlikely'}
+
+    dodge_hierarchy = (80, 60, 45, 20, 10)
+
+    prot_levels = {80: 'the majority', 60: 'a big part of', 45: 'half', 20: 'a small bit', 10: 'very little'}
+
+    prot_hierarchy = (80, 60, 45, 20, 10)
+
+    def stat_level(self, stat, custom_stat=None, list_position=False):
+        if stat == "crit":
+            stat = self.calculate_stat_change('crit', self.crit)
+            stat_hierarchy = self.crit_hierarchy
+            stat_levels = self.crit_levels
+
+        elif stat == "awareness":
+            stat = self.calculate_stat_change('awareness', self.awareness)
+            stat_hierarchy = self.awareness_hierarchy
+            stat_levels = self.awareness_levels
+
+        elif stat == "speed":
+            stat = self.calculate_stat_change('speed', self.speed)
+            stat_hierarchy = self.speed_hierarchy
+            stat_levels = self.speed_levels
+
+        elif stat == "dodge":
+            stat = self.calculate_stat_change('dodge', self.dodge)
+            stat_hierarchy = self.dodge_hierarchy
+            stat_levels = self.dodge_levels
+
+        elif stat == "prot":
+            stat = self.calculate_stat_change('prot', self.prot)
+            stat_hierarchy = self.prot_hierarchy
+            stat_levels = self.prot_levels
+
+        else:
+            error_logger.error("Unknown stat: {}".format(stat))
+            stat_hierarchy = ()
+            stat_levels = {}
+            stat = 0
+
         if list_position:
-            return self.speed_hierarchy.index(min(list(self.speed_levels.keys()), key=lambda x: abs(x - self.speed)))
-        if custom_speed is None:
-            return self.speed_levels[min(list(self.speed_levels.keys()), key=lambda x: abs(x - self.speed))]
+            return stat_hierarchy.index(min(list(stat_levels.keys()), key=lambda x: abs(x - stat)))
+        if custom_stat is None:
+            return stat_levels[min(list(stat_levels.keys()), key=lambda x: abs(x - stat))]
         else:
-            return self.speed_levels[min(list(self.speed_levels.keys()), key=lambda x: abs(x - custom_speed))]
-
-    def new_speed(self, change, amount=0):
-        if change == "increase":
-            if amount != 0:
-                temp_speed = self.speed_hierarchy.index(closest_match(self.speed,
-                                                                      self.speed_hierarchy))
-                if temp_speed + amount > (len(self.speed_hierarchy) - 1):
-                    return
-                else:
-                    self.speed = self.speed_hierarchy[self.speed_level(list_position=True) + amount]
-
-            else:
-                try:
-                    self.speed = self.speed_hierarchy[self.speed_level(list_position=True) + 1]
-                except IndexError:
-                    return
-        elif change == "decrease":
-            if amount != 0:
-                temp_speed = self.speed_hierarchy.index(closest_match(self.speed,
-                                                                      self.speed_hierarchy))
-                if temp_speed - amount < 0:
-                    return
-                else:
-                    self.speed = self.speed_hierarchy[self.speed_level(list_position=True) - amount]
-            else:
-                try:
-                    self.speed = self.speed_hierarchy[self.speed_level(list_position=True) - 1]
-                except IndexError:
-                    return
-        elif change == "specific":
-            if amount != 0 and 100 >= amount >= 0:
-                self.speed = amount
-            else:
-                error_logger.error("Invalid custom speed{}".format(amount))
-        else:
-            error_logger.error("Unknown speed change type{}".format(change))
-
-
+            return stat_levels[min(list(stat_levels.keys()), key=lambda x: abs(x - custom_stat))]
 
     def deal_damage(self, damage):
         self.current_enemy.current_hp -= damage
@@ -1457,7 +1462,10 @@ class Character:
                 else:
                     status_string = status_string + status + ", "
 
-            current_states = "\n{} is {}".format(gender_pronoun_2.capitalize(), status_string)
+            if self == player:
+                current_states = "\nYou are {}".format(status_string)
+            else:
+                current_states = "\n{} is {}".format(gender_pronoun_2.capitalize(), status_string)
         else:
             # If the enemy is not afflicted, an empty string will be returned to be sued
             current_states = ""
@@ -1471,33 +1479,45 @@ class Character:
         temp_prot = self.calculate_stat_change('prot', self.prot)
         temp_crit = self.calculate_stat_change('crit', self.crit)
 
-
-
         # Joining all the string together
         # Different depending on if the target is the player or the enemy
         if isinstance(target, Player):
             if GameMaster.settings['nerd mode']:
-                return "You have {}/{} hp.\nYour current strength is {}.\nYour current awareness is {} and " \
-                       "your speed is {}.{}" \
-                        .format(self.current_hp, self.max_hp, temp_strength,
-                                self.awareness, self.speed, current_states)
+                return ("You have {}/{} hp. Your current strength is {} and your intelligence is {}."
+                        "\nYour current awareness is {} and your speed is {}. You will block {}% of incoming damage."
+                        "\nYou have {}% chance to dodge incoming attacks and {}% to critically strike the enemy for "
+                        "double damage.{}"
+                        .format(self.current_hp, self.max_hp, temp_strength, temp_intelligence,
+                                temp_awareness, temp_speed, temp_prot, temp_dodge, temp_crit, current_states))
             else:
-                return "You have {}/{} hp.\nYour current strength is {}.\nYou are currently {} and {}.{}" \
-                       .format(self.current_hp, self.max_hp, temp_strength,
-                               self.awareness_level(custom_awareness=temp_awareness),
-                               self.speed_level(custom_speed=temp_speed), current_states)
+                return ("You have {}/{} hp. Your current strength is {} and your intelligence is {}.\nYour attacks "
+                        "damage are {} to be doubled by striking critically"
+                        "\nYou are currently {} and {}.\nYou will block {} of incoming attacks and are {} to dodge "
+                        "incoming attacks"
+                        ".{}"
+                        .format(self.current_hp, self.max_hp, temp_strength, temp_intelligence, self.stat_level('crit'),
+                                self.stat_level('awareness'), self.stat_level('speed'),
+                                self.stat_level('prot'), self.stat_level('dodge'), current_states))
         else:
             if GameMaster.settings['nerd mode']:
-                return ("{}.\n{} has {}/{} hp.\n{} strength is {}.\n{}'s awareness is currently {} and {} speed "
-                        "is {}.{}".format
+                return ("{}.\n{} has {}/{} hp. {} strength is {} and {} intelligence is {}. {} critical strike chance "
+                        "is {}%.\n{} will block {}% of your attacks and has a {}% chance to dodge them."
+                        "\n{} awareness is {} and {} speed is {}.{}".format
                         (self.description, self.name, self.current_hp, self.max_hp, gender_pronoun_1.capitalize(),
-                         temp_strength, gender_pronoun_1.capitalize(), gender_pronoun_1, self.awareness,
-                         self.speed, current_states))
+                         temp_strength, gender_pronoun_1, temp_intelligence,
+                         gender_pronoun_1.capitalize(), temp_crit, gender_pronoun_2.capitalize(), temp_prot, temp_dodge,
+                         gender_pronoun_1.capitalize(), temp_awareness, gender_pronoun_1,
+                         temp_speed, current_states))
             else:
-                return ("{}.\n{} has {}/{} hp.\n{} strength is {}.\n{} is currently {} and {}.{}".format
+                return ("{}.\n{} has {}/{} hp. {} strength is {} and {} intelligence is {}.\n{} is currently {} and {}."
+                        "{} is {} to deal double damage with his attacks.\n{} will block {} of your attacks and is {}"
+                        " to dodge them.{}".format
                         (self.description, self.name, self.current_hp, self.max_hp, gender_pronoun_1.capitalize(),
-                         temp_strength, gender_pronoun_2.capitalize(), self.speed_level(temp_speed),
-                         self.awareness_level(temp_awareness), current_states))
+                         temp_strength, gender_pronoun_1, temp_intelligence, gender_pronoun_2.capitalize(),
+                         self.stat_level('speed'), self.stat_level('awareness'), gender_pronoun_2.capitalize(),
+                         self.stat_level('crit'), gender_pronoun_2.capitalize(), self.stat_level('prot'),
+                         self.stat_level('dodge'),
+                         current_states))
 
 
 class Player(Character):
@@ -1516,18 +1536,6 @@ class Player(Character):
         for drop in player.current_enemy.drops:  # last
             if drop.rarity >= random.randint(0, 100):
                 dropped_items[drop] = int(drop.rarity * (player.current_enemy.rank * 0.5))
-
-    def speed_level(self, custom_speed=None, list_position=False):
-        return super(Player, self).speed_level(custom_speed=custom_speed, list_position=list_position)
-
-    def awareness_level(self, custom_awareness=None, list_position=False):
-        return super(Player, self).awareness_level(custom_awareness=custom_awareness, list_position=list_position)
-
-    def new_awareness(self, change, amount=0):
-        super(Player, self).new_awareness(change, amount=amount)
-
-    def new_speed(self, change, amount=0):
-        super(Player, self).new_speed(change, amount=amount)
 
     @staticmethod
     def alive_check():
@@ -1549,17 +1557,7 @@ class Player(Character):
 
 
 class Enemy(Character):
-    def speed_level(self, custom_speed=None, list_position=False):
-        return super(Enemy, self).speed_level(custom_speed=custom_speed, list_position=list_position)
-
-    def awareness_level(self, custom_awareness=None, list_position=False):
-        return super(Enemy, self).awareness_level(custom_awareness=custom_awareness, list_position=list_position)
-
-    def new_awareness(self, change, amount=0):
-        super(Enemy, self).new_awareness(change, amount=amount)
-
-    def new_speed(self, change, amount=0):
-        super(Enemy, self).new_speed(change, amount=amount)
+    pass
 
 
 class Orc(Enemy):
@@ -1751,20 +1749,18 @@ def combat(enemy, location):
         for status in player.Statuses:
             if supported_Statuses[status]['apply_type'] == "start_dot":
                 damage = status(player)
-                GameMaster.action_log.append("{} {} damage.".format
+                GameMaster.extend_action_log("{} {} damage.".format
                                              (supported_Statuses[status]['on_apply_message_player'], damage))
                 GameMaster.last_damage_player = supported_Statuses[status]['type']
                 player.current_hp -= damage
                 player.alive_check()
 
-        info_logger.info(GameMaster.action_log)
-
         def main_choice():
 
             def execute_move(move_type):
                 available_moves = []
-                for ability in player.unlocked_Moves:
-                    if player.unlocked_Moves[ability]['type'] == move_type:
+                for ability in player.moves.unlocked_Moves:
+                    if player.moves.unlocked_Moves[ability]['type'] == move_type:
                         available_moves.append(ability)
                 if len(available_moves) == 0:
                     Console.interactive_choice(["back"],
@@ -1784,7 +1780,7 @@ def combat(enemy, location):
                     else:
                         move_result = None
                     if move_result is not None:
-                        GameMaster.action_log.append(move_result)
+                        GameMaster.extend_action_log(move_result)
                         return True
 
             Console.clear()
@@ -2080,7 +2076,10 @@ def combat(enemy, location):
                     while True:
                         setting_list = []
                         for key in GameMaster.settings:
-                            setting_list.append("{}: {}".format(key, GameMaster.settings[key]))
+                            setting_list.append("{}: {}".format(key, '{}On{}'.format(colorama.Fore.GREEN,
+                                                                                     colorama.Style.RESET_ALL)
+                                                if GameMaster.settings[key] is True else
+                                                '{}Off{}'.format(colorama.Fore.RED, colorama.Style.RESET_ALL)))
 
                         setting_to_be_changed = Console.interactive_choice(setting_list,
                                                                            'Click on any of these to change them',
@@ -2107,7 +2106,8 @@ def combat(enemy, location):
 
     def enemy_turn():
         enemy.deal_damage(enemy.strength)
-
+        result = enemy.Moves.calming_heal(enemy.moves)
+        GameMaster.extend_action_log(result)
         print("enemy")
         print("\n")
         time.sleep(1)
@@ -2120,13 +2120,13 @@ def combat(enemy, location):
         while True:
             if player_first:
                 if Statuses.stun in player.Statuses:
-                    GameMaster.action_log.append(supported_Statuses[Statuses.stun]['on_apply_message_player'])
+                    GameMaster.extend_action_log(supported_Statuses[Statuses.stun]['on_apply_message_player'])
                     del player.Statuses[Statuses.stun]
                 else:
                     player_turn()
 
                 if Statuses.stun in player.current_enemy.Statuses:
-                    GameMaster.action_log.append(supported_Statuses[Statuses.stun]
+                    GameMaster.extend_action_log(supported_Statuses[Statuses.stun]
                                                  ['on_apply_message_enemy'].format(enemy.name))
                     del enemy.Statuses[Statuses.stun]
                 else:
@@ -2134,14 +2134,14 @@ def combat(enemy, location):
 
             else:
                 if Statuses.stun in player.current_enemy.Statuses:
-                    GameMaster.action_log.append(supported_Statuses[Statuses.stun]
+                    GameMaster.extend_action_log(supported_Statuses[Statuses.stun]
                                                  ['on_apply_message_enemy'].format(enemy.name))
                     del enemy.Statuses[Statuses.stun]
                 else:
                     enemy_turn()
 
                 if Statuses.stun in player.Statuses:
-                    GameMaster.action_log.append(supported_Statuses[Statuses.stun]['on_apply_message_player'])
+                    GameMaster.extend_action_log(supported_Statuses[Statuses.stun]['on_apply_message_player'])
                     del player.Statuses[Statuses.stun]
                 else:
                     player_turn()
@@ -2170,7 +2170,7 @@ def on_start():
         ctypes.windll.kernel32.SetConsoleTitleA(GameMaster.game_name)
 
     # Defining the path of the game
-    project_path = os.path.abspath("")
+    project_path = os.path.dirname(sys.argv[0])
 
     # Setting up the game settings with json
     if os.stat("{}\\Saves\\General info\\Config.json".format(project_path)).st_size != 0:
@@ -2248,17 +2248,19 @@ def on_start():
 
 
 if __name__ == '__main__':
-    # Setting some variables to be used during runtime
-    # Along with setting up some loggers
-    error_logger, info_logger = on_start()
-
     # Initiating everything
     player = Player('Tester', 'male')
     player.inventory = player.Inventory(player)
     player.moves = player.Moves(player)
 
+    GameMaster = GameMaster()
+
     # Initiating colorama so that we can color console output
     colorama.init()
+
+    # Setting some variables to be used during runtime
+    # Along with setting up some loggers
+    error_logger, info_logger = on_start()
 
     # Debug
     hen = Animal(1, 'Gullbert the hen', 'male', 'A hen', 15, 40, 2, 0, 3, 20)
