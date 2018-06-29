@@ -291,7 +291,6 @@ class Console:
             line_areas = [x for x in line_areas if x != []]
 
         else:
-            info_logger.info("before: {}".format(custom_area))
             for sublist in custom_area:
                 custom_area[custom_area.index(sublist)][0] *= font_size_x
                 custom_area[custom_area.index(sublist)][0] += console_x_border
@@ -305,7 +304,6 @@ class Console:
                 custom_area[custom_area.index(sublist)][3] *= font_size_y
                 custom_area[custom_area.index(sublist)][3] += console_y_border
 
-        info_logger.info("after: {}".format(custom_area))
 
         def on_click(x, y, button, pressed):
             # Checking whether a left click is performed
@@ -2348,6 +2346,9 @@ def on_start():
     # Error logger
     error_log = setup_logger("Error logging", "{}\\Logs\\logging_errors.log".format(project_path))
 
+    # Debug logger
+    debug_log = setup_logger('Debug Logging', "{}\\Logs\\debug_log.log".format(project_path), level=logging.DEBUG)
+
     # Settings up some info depending on the windows version used
     with open("{}\\Saves\\Config\\Setup.json".format(project_path)) as f:
         config = json.load(f)
@@ -2386,7 +2387,7 @@ def on_start():
         GameMaster.console_height_y = 524
 
     Console.console_location_reset()
-    return error_log, info_log
+    return error_log, info_log, debug_log
 
 
 if __name__ == '__main__':
@@ -2402,7 +2403,7 @@ if __name__ == '__main__':
 
     # Setting some variables to be used during runtime
     # Along with setting up some loggers
-    error_logger, info_logger = on_start()
+    error_logger, info_logger, debug_logger = on_start()
 
     # Debug
     hen = Animal(1, 'Gullbert the hen', 'male', 'A hen', 15, 40, 2, 0, 3, 20)
@@ -2413,4 +2414,5 @@ if __name__ == '__main__':
     hen.apply_effect(Statuses.stun)
     player.apply_effect(Statuses.apply_bleed, 10)
     player.inventory.add_item(Gold, 10)
+    debug_logger.debug("haitai")
     combat(hen, "swamp")
