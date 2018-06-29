@@ -1,7 +1,5 @@
 # Better drop system
-# Fix back windows 10
-# Inspect non nerd mode enemy
-import pickle
+# Revert console
 import random
 import time
 import os
@@ -12,6 +10,8 @@ import ctypes
 import colorama
 import logging
 import json
+import subprocess
+import winreg
 
 
 def closest_match(value, array):
@@ -31,10 +31,13 @@ def isint(variable_to_test):
     except ValueError:
         return False
 
+
 def play_wav(file_name):
     project_path = os.path.dirname(sys.argv[0])
 
-    os.system("start {}\\Scripts\\play_wav.pyw {}\\Audio\\{}".format(project_path, project_path, file_name))
+    subprocess.Popen(["python", "{}\\Scripts\\play_wav.py".format(project_path),
+                      "{}\\Audio\\{}".format(project_path, file_name)], shell=False)
+
 
 class Console:
     # A class for collecting all methods related to the console
@@ -219,24 +222,29 @@ class Console:
 
     @staticmethod
     def interactive_choice(cases: list, head_string: str, back_want: bool = False,
-                           battle: bool = False, enumerated: bool = False):
+                           battle: bool = False, enumerated: bool = False, custom_area=()):
         # This method makes use of the print_with_layout method in order to make some printed objects clickable
         # Cases is a list of the clickable strings
         # Head_string will be printed at the top of the console and will not be clickable
         # If battle is True, an enemy must be supplied and print_with_layout will use the battle layout
         # If back_want is True, a back option will be added
         # Returns the name of the string clicked(or None, signaling that back was clicked)
-        GameMaster.last_interactive_choice_call['cases'] = cases
-        GameMaster.last_interactive_choice_call['head_string'] = head_string
-        GameMaster.last_interactive_choice_call['back_want'] = back_want
-        GameMaster.last_interactive_choice_call['battle'] = battle
-        GameMaster.last_interactive_choice_call['enumerated'] = enumerated
+        if len(custom_area) == 0:
+            GameMaster.last_interactive_choice_call['cases'] = cases
+            GameMaster.last_interactive_choice_call['head_string'] = head_string
+            GameMaster.last_interactive_choice_call['back_want'] = back_want
+            GameMaster.last_interactive_choice_call['battle'] = battle
+            GameMaster.last_interactive_choice_call['enumerated'] = enumerated
 
         def move_to_string():
             # Formatting the string to be printed
             string_output = head_string
-            for action in cases:
-                string_output = string_output + "\n*" + action
+            if len(custom_area) == 0:
+                for action in cases:
+                    string_output = string_output + "\n*" + action
+            else:
+                for action in cases:
+                    string_output = string_output + "\n" + action
 
             return string_output
 
@@ -267,48 +275,95 @@ class Console:
 
         # Calculating the areas which are clickable
         # First two x values, then two y values in the dict
-        line_areas = []
-        for i in range(0, 31):
-            line_areas.append([])
-        for move in cases:
-            line_areas[cases.index(move)].append(console_x_border)
-            line_areas[cases.index(move)].append(len(move) * font_size_x + console_x_border)
+        if len(custom_area) == 0:
+            line_areas = []
+            for i in range(0, 31):
+                line_areas.append([])
+            for move in cases:
+                line_areas[cases.index(move)].append(console_x_border)
+                line_areas[cases.index(move)].append(len(move) * font_size_x + console_x_border)
 
-            line_areas[cases.index(move)].append(console_y_border + font_size_y * uninteractive_lines)
-            line_areas[cases.index(move)].append((cases.index(move) + 1) * font_size_y
-                                                 + console_y_border + font_size_y * uninteractive_lines)
-        # Removing empty nested lists
-        line_areas = [x for x in line_areas if x != []]
+                line_areas[cases.index(move)].append(console_y_border + font_size_y * uninteractive_lines)
+                line_areas[cases.index(move)].append((cases.index(move) + 1) * font_size_y
+                                                     + console_y_border + font_size_y * uninteractive_lines)
+
+            # Removing empty nested lists
+            line_areas = [x for x in line_areas if x != []]
+
+        else:
+            info_logger.info("before: {}".format(custom_area))
+            for sublist in custom_area:
+                custom_area[custom_area.index(sublist)][0] *= font_size_x
+                custom_area[custom_area.index(sublist)][0] += console_x_border
+
+                custom_area[custom_area.index(sublist)][1] *= font_size_x
+                custom_area[custom_area.index(sublist)][1] += console_x_border
+
+                custom_area[custom_area.index(sublist)][2] *= font_size_y
+                custom_area[custom_area.index(sublist)][2] += console_y_border
+
+                custom_area[custom_area.index(sublist)][3] *= font_size_y
+                custom_area[custom_area.index(sublist)][3] += console_y_border
+
+        info_logger.info("after: {}".format(custom_area))
 
         def on_click(x, y, button, pressed):
             # Checking whether a left click is performed
             if pressed and button == pynput.mouse.Button.left:
-                for x_y in line_areas:
-                    # Checking if the mouse input is within the desired area
-                    if x in range(line_areas[line_areas.index(x_y)][0],
-                                  line_areas[line_areas.index(x_y)][1]) and \
-                            y in range(line_areas[line_areas.index(x_y)][2],
-                                       line_areas[line_areas.index(x_y)][3]):
-                        # For the listener to exit, we need to return false
-                        # Therefore, in order to return other values, we use a global variable
-                        global case
-                        case = cases[line_areas.index(x_y)]
-                        return False
+                if len(custom_area) == 0:
+                    for x_y in line_areas:
+                        # Checking if the mouse input is within the desired area
+                        if x in range(line_areas[line_areas.index(x_y)][0],
+                                      line_areas[line_areas.index(x_y)][1]) and \
+                                y in range(line_areas[line_areas.index(x_y)][2],
+                                           line_areas[line_areas.index(x_y)][3]):
+                            # For the listener to exit, we need to return false
+                            # Therefore, in order to return other values, we use a global variable
+                            global case
+                            case = cases[line_areas.index(x_y)]
+                            return False
+                else:
+                    for x_y in custom_area:
+
+                        # Checking if the mouse input is within the desired area
+
+                        if (x in range(custom_area[custom_area.index(x_y)][0],
+                                       custom_area[custom_area.index(x_y)][1])
+                            and
+                            y in range(custom_area[custom_area.index(x_y)][2],
+                                       custom_area[custom_area.index(x_y)][3])):
+
+                            global case_custom_area
+                            case_custom_area = cases[custom_area.index(x_y)]
+                            return False
 
         # Checks for mouse clicks, if there are any it calls on_click
         with pynput.mouse.Listener(on_click=on_click) as listener:
             listener.join()
 
-        if case == "back":
-            # If the input is back, return None
-            return None
-        else:
-            # If a clickable case was clicked, return which one
-            # If enumerated is true, we return the index of the case
-            if enumerated:
-                return cases.index(case)
+        if len(custom_area) == 0:
+            if case == "back":
+                # If the input is back, return None
+                return None
             else:
-                return case
+                # If a clickable case was clicked, return which one
+                # If enumerated is true, we return the index of the case
+                if enumerated:
+                    return cases.index(case)
+                else:
+                    return case
+
+        else:
+            if case_custom_area == "back":
+                # If the input is back, return None
+                return None
+            else:
+                # If a clickable case was clicked, return which one
+                # If enumerated is true, we return the index of the case
+                if enumerated:
+                    return cases.index(case_custom_area)
+                else:
+                    return case_custom_area
 
 
 class Statuses:
@@ -2070,19 +2125,30 @@ def combat(enemy, location):
                 elif action == 9:
                     def save_settings():
                         project_path = os.path.abspath("")
-                        with open("{}\\Saves\\General info\\Config.json".format(project_path), 'w') as f:
+                        with open("{}\\Saves\\Config\\Config.json".format(project_path), 'w') as f:
                             json.dump(GameMaster.settings, f)
 
                     while True:
                         setting_list = []
                         for key in GameMaster.settings:
-                            setting_list.append("{}: {}".format(key, '{}On{}'.format(colorama.Fore.GREEN,
-                                                                                     colorama.Style.RESET_ALL)
-                                                if GameMaster.settings[key] is True else
-                                                '{}Off{}'.format(colorama.Fore.RED, colorama.Style.RESET_ALL)))
+                            if key == "ForceV2":
+                                if GameMaster.settings[key] is None:
+                                    skip = True
+                                else:
+                                    skip = False
+                            else:
+                                skip = False
+
+                            if not skip:
+                                setting_list.append("{}: {}".format(key, '{}On{}'.format(colorama.Fore.GREEN,
+                                                                                         colorama.Style.RESET_ALL)
+                                                    if GameMaster.settings[key] else
+                                                    '{}Off{}'.format(colorama.Fore.RED, colorama.Style.RESET_ALL)))
 
                         setting_to_be_changed = Console.interactive_choice(setting_list,
-                                                                           'Click on any of these to change them',
+                                                                           "Click on any of these to change them\n"
+                                                                           "Disabling Quickedit makes the game sort of"
+                                                                           "unplayable",
                                                                            battle=True, back_want=True, enumerated=True)
 
                         # Going back case
@@ -2099,6 +2165,61 @@ def combat(enemy, location):
                                 (error_logger.error("Illegal case in settings nerd mode:{}"
                                                     .format(GameMaster.settings['nerd mode'])))
                             save_settings()
+
+                        # Quickedit case
+                        elif setting_to_be_changed == 1:
+                            if not GameMaster.settings['Quickedit']:
+                                new_setting = 1
+                                safe_registry_edit = True
+                                GameMaster.settings['Quickedit'] = new_setting
+                            elif GameMaster.settings['Quickedit']:
+                                new_setting = 1
+                                safe_registry_edit = True
+                                GameMaster.settings['Quickedit'] = new_setting
+                            else:
+                                (error_logger.error("Illegal case in settings nerd mode:{}"
+                                                    .format(GameMaster.settings['Quickedit'])))
+                                safe_registry_edit = False
+                                new_setting = 0
+
+                            if safe_registry_edit:
+                                try:
+                                    path = "Console\\%SystemRoot%_py.exe"
+                                    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_WRITE)
+                                    winreg.SetValueEx(key, "Quickedit", 0, winreg.REG_DWORD, new_setting)
+                                    winreg.CloseKey(key)
+                                except WindowsError:
+                                    path = "Console"
+                                    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_WRITE)
+                                    winreg.SetValueEx(key, "Quickedit", 0, winreg.REG_DWORD, new_setting)
+                                    winreg.CloseKey(key)
+                            save_settings()
+
+                        # ForceV2 case
+                        elif setting_to_be_changed == 2:
+                            if not GameMaster.settings['ForceV2']:
+                                new_setting = 1
+                                safe_registry_edit = True
+                                GameMaster.settings['ForceV2'] = new_setting
+                            elif GameMaster.settings['ForceV2']:
+                                new_setting = 0
+                                safe_registry_edit = True
+                                GameMaster.settings['ForceV2'] = new_setting
+                            else:
+                                (error_logger.error("Illegal case in settings ForceV2:{}"
+                                                    .format(GameMaster.settings['Quickedit'])))
+                                safe_registry_edit = False
+                                new_setting = 0
+
+                            if safe_registry_edit:
+                                path = "Console"
+                                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_WRITE)
+                                winreg.SetValueEx(key, "ForceV2", 0, winreg.REG_DWORD, new_setting)
+                                winreg.CloseKey(key)
+                            save_settings()
+
+                        else:
+                            error_logger.error("Unknown case in settings to edit: {}".format(setting_to_be_changed))
 
         # Calls the player's main choice
         # The call is way back here because the code it depends on need to be declared
@@ -2159,6 +2280,29 @@ def combat(enemy, location):
 
 
 def on_start():
+    try:
+        registry_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Console\\%SystemRoot%_py.exe", 0,
+                                      winreg.KEY_READ)
+        quickedit_value, _ = winreg.QueryValueEx(registry_key, "Quickedit")
+        winreg.CloseKey(registry_key)
+    except WindowsError:
+        registry_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Console\\%SystemRoot%_py.exe", 0,
+                                      winreg.KEY_READ)
+        quickedit_value, _ = winreg.QueryValueEx(registry_key, "Quickedit")
+        winreg.CloseKey(registry_key)
+
+    # Defining the path of the game
+    project_path = os.path.dirname(sys.argv[0])
+
+    if quickedit_value:
+        os.system("start {}\\Scripts\\Restart_game.pyw".format(project_path))
+
+    # Running a setup script
+    os.system("python {}\\Scripts\\Setup.py".format(project_path))
+
+    if quickedit_value:
+        raise SystemExit
+
     # Setting the game's name
     GameMaster.game_name = "Temporary placeholder for a game name, please change later"
 
@@ -2169,22 +2313,19 @@ def on_start():
     else:
         ctypes.windll.kernel32.SetConsoleTitleA(GameMaster.game_name)
 
-    # Defining the path of the game
-    project_path = os.path.dirname(sys.argv[0])
-
     # Setting up the game settings with json
-    if os.stat("{}\\Saves\\General info\\Config.json".format(project_path)).st_size != 0:
-        with open("{}\\Saves\\General info\\Config.json".format(project_path)) as f:
+    if os.stat("{}\\Saves\\Config\\Config.json".format(project_path)).st_size != 0:
+        with open("{}\\Saves\\Config\\Config.json".format(project_path)) as f:
             GameMaster.settings = json.load(f)
-
     else:
         settings = '''
         {
-            "nerd mode": false
+            "nerd mode": false,
+            "Quickedit": null,
+            "ForceV2": null
         }
         '''
-        settings = json.loads(settings)
-        GameMaster.settings = settings
+        GameMaster.settings = json.loads(settings)
 
     # Setting up some loggers
     # Info logger
@@ -2208,8 +2349,9 @@ def on_start():
     error_log = setup_logger("Error logging", "{}\\Logs\\logging_errors.log".format(project_path))
 
     # Settings up some info depending on the windows version used
-    with open(project_path + "\\Saves\\General info\\Platform.txt", 'r') as f:
-        os_version = f.read()
+    with open("{}\\Saves\\Config\\Setup.json".format(project_path)) as f:
+        config = json.load(f)
+        os_version = config['os']
 
     if os_version == 'Windows-8.1' or os_version == 'Windows-8':
         GameMaster.console_location_x = 0
