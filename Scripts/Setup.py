@@ -1,50 +1,81 @@
 import os
 import sys
 import winreg
-import pickle
 import platform
+import logging
+import json
 
 # Defining this projects path
-project_path = os.path.abspath("")
+project_path = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), os.pardir))
 
+
+def setup_logger(name, file, level=logging.WARNING):
+    # Function to easily create loggers
+
+    handler = logging.FileHandler(file)
+    formatter = logging.Formatter("%(asctime)s:%(levelname)s:%(filename)s:%(lineno)d:%(message)s")
+    handler.setFormatter(formatter)
+
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.addHandler(handler)
+
+    return logger
+
+
+# Info logger
+info_log = setup_logger("Info logging", "{}\\Logs\\logging_info.log".format(project_path), level=logging.INFO)
+
+# Error logger
+error_log = setup_logger("Error logging", "{}\\Logs\\logging_errors.log".format(project_path))
 
 def premature_exit(error):
-    with open(project_path + "{}".format("\\Saves\\General Info\\errors.txt"), 'w') as txt:
-        if error:
-            txt.write(error)
-        else:
-            txt.write("None")
-    with open(project_path + "{}".format("\\Saves\\General Info\\clear run.txt"), 'w') as do_we_run:
-        do_we_run.write("False")
-    raise SystemExit
+    error_log.error(error)
 
 
-if not os.path.exists(project_path + "/Saves"):
+setup = '''
+{
+    "os": null
+}
+'''
+setup = json.loads(setup)
+
+if not os.path.exists("{}\\Saves".format(project_path)):
     premature_exit('Error: Could not find the folder "{}\\Saves"'.format(project_path))
+    with open("{}\\Saves".format(project_path), 'x') as f:
+        pass
 
-if not os.path.exists(project_path + "/Saves/Player saves"):
+if not os.path.exists("{}\\Saves\\/Player saves".format(project_path)):
     premature_exit('Error: Could not find the folder "{}\\Saves\\Player saves"'.format(project_path))
+    with open("{}\\Saves\\Player saves".format(project_path), 'x') as f:
+        pass
 
-if not os.path.exists(project_path + "/Saves/General info"):
-    premature_exit('Error: Could not find the folder "{}\\Saves\\General info"'.format(project_path))
+if not os.path.exists("{}\\Saves\\Config".format(project_path)):
+    premature_exit('Error: Could not find the folder "{}\\Saves\\Config"'.format(project_path))
+    with open("{}\\Saves\\Config".format(project_path), 'x') as f:
+        pass
+
+
+if not os.path.exists("{}\\Logs".format(project_path)):
+    premature_exit('Error: Could not find the folder "{}\\Logs"'.format(project_path))
+    with open("{}\\Logs".format(project_path), 'x') as f:
+        pass
 
 # The versions i am supporting
 # This is basically information about the size of the console, used in interactive choices
-accepted_windows_versions = ('Windows-8', 'Windows-10', 'Windows-8.1')
+accepted_operating_systems = ('Windows-8', 'Windows-10', 'Windows-8.1')
 
 supported_os = True
-version = platform.platform(terse=True)
-if version in accepted_windows_versions:
-    with open(project_path + "{}".format("/Saves/General Info/Platform.txt"), 'w') as f:
-        f.write(version)
+os_version = platform.platform(terse=True)
+if os_version in accepted_operating_systems:
+    setup['os'] = os_version
 else:
-    with open(project_path + "{}".format("/Saves/General Info/Platform.txt"), 'w') as f:
-        f.write('Windows-10')
+    setup['os'] = os_version
     supported_os = False
-    with open(project_path + "{}".format("/Saves/General Info/errors.txt", 'w')) as file:
-        file.write("Unsupported os. Will use settings for windows 10. Might not work")
+    error_log.error("Unsupported os: {}. Will use settings for windows 10.".format(os))
 
-audio_path = project_path + "\\Audio\\"
+
+audio_path = "{}\\Audio\\".format(project_path)
 audio_files = ("abc_123_a.ogg",)
 missing_audio_files = []
 for audio_file in audio_files:
@@ -62,7 +93,7 @@ if supported_os:
     # Reading the user's initial values set for the console in case they want to reverse it later
     py_exe_installed = False
     try:
-        registry_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Console\%SystemRoot%_py.exe", 0,
+        registry_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Console\\%SystemRoot%_py.exe", 0,
                                       winreg.KEY_READ)
         quickedit, __ = winreg.QueryValueEx(registry_key, "Quickedit")
         winreg.CloseKey(registry_key)
@@ -75,42 +106,71 @@ if supported_os:
             winreg.CloseKey(registry_key)
         except WindowsError:
             quickedit = 0
-            print("You are probably not using windows. Shit might not work")
 
     try:
-        registry_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Console", 0,
+        registry_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Console", 0,
                                       winreg.KEY_READ)
         legacy, __ = winreg.QueryValueEx(registry_key, "ForceV2")
         winreg.CloseKey(registry_key)
     except WindowsError:
         legacy = None
 
-    with open(project_path + "{}".format("/Saves/General Info/Original settings console.pickle"), 'wb') as f:
-        original_console_settings = {'Quickedit': quickedit, 'ForceV2': legacy}
-        pickle.dump(original_console_settings, f)
-
     # Setting registry values of the console for an optimized experience
     # If the option to enable legacy console exists, we want do that
     if legacy is not None:
-        path = r"Console"
+        path = "Console"
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_WRITE)
         winreg.SetValueEx(key, "ForceV2", 0, winreg.REG_DWORD, 0)
         winreg.CloseKey(key)
 
     # Disabling quickedit
     if py_exe_installed:
-        path = r"Console\%SystemRoot%_py.exe"
+        path = "Console\\%SystemRoot%_py.exe"
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_WRITE)
         winreg.SetValueEx(key, "Quickedit", 0, winreg.REG_DWORD, 0)
         winreg.CloseKey(key)
     else:
-        path = r"Console"
+        path = "Console"
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_WRITE)
         winreg.SetValueEx(key, "Quickedit", 0, winreg.REG_DWORD, 0)
         winreg.CloseKey(key)
+else:
+    quickedit = None
+    legacy = None
 
-# This code will only be reached if no errors are caught
-with open(project_path + "{}".format("\\Saves\\General Info\\clear run.txt"), 'w') as f:
-    f.write("True")
+# Setting up the game settings with json
+try:
+    with open("{}\\Saves\\Config\\Config.json".format(project_path), 'x') as f:
+        pass
+except FileExistsError:
+    pass
+
+if os.stat("{}\\Saves\\Config\\Config.json".format(project_path)).st_size == 0:
+    with open("{}\\Saves\\Config\\Config.json".format(project_path), 'w') as f:
+        settings = '''
+        {
+            "nerd mode": false,
+            "Quickedit": null,
+            "ForceV2": null
+        }
+        '''
+        settings = json.loads(settings)
+        settings['Quickedit'] = quickedit
+        settings['ForceV2'] = legacy
+        json.dump(settings, f)
+
+try:
+    with open("{}\\Saves\\Config\\Setup.json".format(project_path), 'x') as f:
+        pass
+except FileExistsError:
+    pass
+
+if os.stat("{}\\Saves\\Config\\Setup.json".format(project_path)).st_size == 0:
+    with open("{}\\Saves\\Config\\Setup.json".format(project_path), 'w') as f:
+        json.dump(setup, f)
+
+
+
+
 
 
