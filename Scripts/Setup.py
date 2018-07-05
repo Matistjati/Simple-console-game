@@ -29,10 +29,6 @@ info_log = setup_logger("Info logging", "{}\\Logs\\logging_info.log".format(proj
 # Error logger
 error_log = setup_logger("Error logging", "{}\\Logs\\logging_errors.log".format(project_path))
 
-def premature_exit(error):
-    error_log.error(error)
-
-
 setup = '''
 {
     "os": null
@@ -41,23 +37,23 @@ setup = '''
 setup = json.loads(setup)
 
 if not os.path.exists("{}\\Saves".format(project_path)):
-    premature_exit('Error: Could not find the folder "{}\\Saves"'.format(project_path))
+    error_log.error.error('Error: Could not find the folder "{}\\Saves"'.format(project_path))
     with open("{}\\Saves".format(project_path), 'x') as f:
         pass
 
 if not os.path.exists("{}\\Saves\\/Player saves".format(project_path)):
-    premature_exit('Error: Could not find the folder "{}\\Saves\\Player saves"'.format(project_path))
+    error_log.error.error('Error: Could not find the folder "{}\\Saves\\Player saves"'.format(project_path))
     with open("{}\\Saves\\Player saves".format(project_path), 'x') as f:
         pass
 
 if not os.path.exists("{}\\Saves\\Config".format(project_path)):
-    premature_exit('Error: Could not find the folder "{}\\Saves\\Config"'.format(project_path))
+    error_log.error.error('Error: Could not find the folder "{}\\Saves\\Config"'.format(project_path))
     with open("{}\\Saves\\Config".format(project_path), 'x') as f:
         pass
 
 
 if not os.path.exists("{}\\Logs".format(project_path)):
-    premature_exit('Error: Could not find the folder "{}\\Logs"'.format(project_path))
+    error_log.error.error('Error: Could not find the folder "{}\\Logs"'.format(project_path))
     with open("{}\\Logs".format(project_path), 'x') as f:
         pass
 
@@ -86,7 +82,7 @@ if not len(missing_audio_files) == 0:
     audio_error = "Error: You are missing the following audio files:"
     for missing_audio in missing_audio_files:
         audio_error = audio_error + "\n" + missing_audio
-    premature_exit(audio_error)
+    error_log.error.error(audio_error)
 
 # We only want to meddle with the registry if we know what we are dealing with
 if supported_os:
@@ -158,6 +154,22 @@ if os.stat("{}\\Saves\\Config\\Config.json".format(project_path)).st_size == 0:
         settings['Quickedit'] = quickedit
         settings['ForceV2'] = legacy
         json.dump(settings, f)
+else:
+    with open("{}\\Saves\\Config\\Config.json".format(project_path), 'r') as f_1:
+        test_content = f_1.readlines()
+        if test_content[0] == "\n" and len(test_content) == 1:
+            with open("{}\\Saves\\Config\\Config.json".format(project_path), 'w') as f_2:
+                settings = '''
+                        {
+                            "nerd mode": false,
+                            "Quickedit": null,
+                            "ForceV2": null
+                        }
+                        '''
+                settings = json.loads(settings)
+                settings['Quickedit'] = quickedit
+                settings['ForceV2'] = legacy
+                json.dump(settings, f_2)
 
 try:
     with open("{}\\Saves\\Config\\Setup.json".format(project_path), 'x') as f:
@@ -169,8 +181,12 @@ if os.stat("{}\\Saves\\Config\\Setup.json".format(project_path)).st_size == 0:
     with open("{}\\Saves\\Config\\Setup.json".format(project_path), 'w') as f:
         json.dump(setup, f)
 
-
-
+else:
+    with open("{}\\Saves\\Config\\Setup.json".format(project_path), 'r') as f_1:
+        test_content = f_1.readlines()
+        if test_content[0] == "\n" and len(test_content) == 1:
+            with open("{}\\Saves\\Config\\Setup.json".format(project_path), 'w') as f_2:
+                json.dump(setup, f_2)
 
 
 
