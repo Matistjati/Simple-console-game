@@ -1,5 +1,5 @@
 # Better drop system
-# Revert console
+# Update inspect
 import random
 import time
 import os
@@ -56,10 +56,10 @@ class Console:
 
     @staticmethod
     def print_with_layout(extra_text=None, battle=False):
-        # Method for printing text along with other things, for example a healthbar
+        # Method for printing text along with other things, for example a health_bar
         # "Other things" will remain at the same location, even if there's other text in the same line
         # If battle is true, enemy must also be supplied
-        # If battle is true, a healthbar for the player and enemy will be printed along with an action log
+        # If battle is true, a health_bar for the player and enemy will be printed along with an action log
         Console.clear()
         if extra_text is not None:
             # Splitting input into a list
@@ -104,45 +104,103 @@ class Console:
         line_28 = lines_in[27]
         line_29 = lines_in[28]
 
-        # Declaring ASCII characters for the healthbars and the action log
+        # Declaring ASCII characters for the health_bars and the action log
         standing_line = chr(124)
         block = chr(9608)
         top_line = chr(175)
 
         # Checking if we want the battle layout
         if battle:
-            # The spacings used for the healthbars and the log, from left to right
-            player_healthbar_spacing = 30
-            enemy_healthbar_spacing = 80
+            # The spacings used for the health_bars and the log, from left to right
+            player_health_bar_spacing = 26
+            enemy_health_bar_spacing = 80
             overlapping_action_log_spacing_special = 30
             overlapping_action_log_spacing = 22
             normal_action_log_spacing = overlapping_action_log_spacing + 30
 
-            # Declaring the healthbars and actions logs
+            # Declaring the health_bars and actions logs
             # This is done in such a way that they will remain at a static position in the console
-            player_bot_healthbar = ' ' * (player_healthbar_spacing - len(line_24)) + " " + top_line * 10
-            enemy_bot_healthbar = ' ' * (enemy_healthbar_spacing - len(line_8)) + " " + top_line * 10
+            player_bot_bar = ' ' * (player_health_bar_spacing - len(line_26)) + " " + top_line * 10
+            enemy_bot_bar = ' ' * (enemy_health_bar_spacing - len(line_10)) + " " + top_line * 10
 
-            player_top_healthbar = ' ' * (player_healthbar_spacing - len(line_22)) + " " + "_" * 10 + player.name
+            player_top_health_bar = ' ' * (player_health_bar_spacing - len(line_22)) + " " + "_" * 10 + player.name +\
+                                    " "
+            invisible_text = 0
+            for status in player.Statuses:
+                if status == Statuses.stun:
+                    player_top_health_bar += "{}*{}".format(colorama.Fore.LIGHTYELLOW_EX, colorama.Style.RESET_ALL)
+                    invisible_text += 9
+                elif status == Statuses.apply_bleed:
+                    player_top_health_bar += "{}{}{}".format(colorama.Fore.LIGHTRED_EX, chr(191),
+                                                             colorama.Style.RESET_ALL)
+                    invisible_text += 9
+                elif status in GameMaster.stats:
+                    if player.Statuses[status]['amount'] >= 0:
+                        player_top_health_bar += "{}^{}".format(colorama.Fore.LIGHTBLUE_EX, colorama.Style.RESET_ALL)
+                        invisible_text += 9
+                    else:
+                        player_top_health_bar += "{}v{}".format(colorama.Fore.YELLOW, chr(8673),
+                                                                colorama.Style.RESET_ALL)
+                        invisible_text += 9
+
             if line_6 == '*{}buff{}'.format(colorama.Fore.LIGHTCYAN_EX, colorama.Fore.RESET):
-                enemy_top_healthbar = (' ' * (enemy_healthbar_spacing - len(line_6) + 10)
-                                       + " " + "_" * 10 + player.current_enemy.name)
+                enemy_top_health_bar = (' ' * (enemy_health_bar_spacing - len(line_6) + 10)
+                                        + " " + "_" * 10 + player.current_enemy.name + " ")
             else:
-                enemy_top_healthbar = (' ' * (enemy_healthbar_spacing - len(line_6))
-                                       + " " + "_" * 10 + player.current_enemy.name)
+                enemy_top_health_bar = (' ' * (enemy_health_bar_spacing - len(line_6))
+                                        + " " + "_" * 10 + player.current_enemy.name + " ")
+
+            for status in player.current_enemy.Statuses:
+                if status == Statuses.stun:
+                    enemy_top_health_bar += "{}*{}".format(colorama.Fore.LIGHTYELLOW_EX, colorama.Style.RESET_ALL)
+                elif status == Statuses.apply_bleed:
+                    enemy_top_health_bar += "{}{}{}".format(colorama.Fore.LIGHTRED_EX, chr(191),
+                                                             colorama.Style.RESET_ALL)
+                elif status in GameMaster.stats:
+                    if enemy.Statuses[status]['amount'] >= 0:
+                        enemy_top_health_bar += "{}^{}".format(colorama.Fore.LIGHTBLUE_EX, colorama.Style.RESET_ALL)
+                    else:
+                        enemy_top_health_bar += "{}v{}".format(colorama.Fore.YELLOW, chr(8673),
+                                                                colorama.Style.RESET_ALL)
 
             player_hp = int((player.current_hp / player.max_hp) * 10)
+            player_mp = int((player.current_mp / player.max_mp) * 10)
+            player_stamina = int((player.current_stamina / player.max_stamina) * 10)
+
             enemy_hp = int((player.current_enemy.current_hp / player.current_enemy.max_hp) * 10)
+            enemy_mp = int((player.current_enemy.current_mp / player.current_enemy.max_mp) * 10)
+            enemy_stamina = int((player.current_enemy.current_stamina / player.current_enemy.max_stamina) * 10)
 
-            player_mid_healthbar = (' ' * (player_healthbar_spacing - len(line_23)) + standing_line +
-                                    colorama.Fore.RED + block * player_hp + colorama.Style.RESET_ALL
-                                    + " " * (10 - player_hp) + standing_line +
-                                    "{}/{} hp".format(player.current_hp, player.max_hp))
+            player_mid_health_bar = (' ' * (player_health_bar_spacing - len(line_23)) + standing_line +
+                                     colorama.Fore.RED + block * player_hp + colorama.Style.RESET_ALL
+                                     + " " * (10 - player_hp) + standing_line +
+                                     "{}/{} hp".format(player.current_hp, player.max_hp))
 
-            enemy_mid_healthbar = (' ' * (enemy_healthbar_spacing - len(line_7)) + standing_line +
-                                   colorama.Fore.RED + block * enemy_hp + " " * (10 - enemy_hp) +
-                                   colorama.Style.RESET_ALL + standing_line +
-                                   '{}/{} hp'.format(player.current_enemy.current_hp, player.current_enemy.max_hp))
+            player_mid_mp_bar = (' ' * (player_health_bar_spacing - len(line_24)) + standing_line +
+                                 colorama.Fore.BLUE + block * player_mp + colorama.Style.RESET_ALL
+                                 + " " * (10 - player_mp) + standing_line +
+                                 "{}/{} mp".format(player.current_mp, player.max_mp))
+
+            player_mid_stamina_bar = (' ' * (player_health_bar_spacing - len(line_25)) + standing_line +
+                                      colorama.Fore.GREEN + block * player_stamina + colorama.Style.RESET_ALL
+                                      + " " * (10 - player_stamina) + standing_line +
+                                      "{}/{} stamina".format(player.current_stamina, player.max_stamina))
+
+            enemy_mid_health_bar = (' ' * (enemy_health_bar_spacing - len(line_7)) + standing_line +
+                                    colorama.Fore.RED + block * enemy_hp + " " * (10 - enemy_hp) +
+                                    colorama.Style.RESET_ALL + standing_line +
+                                    '{}/{} hp'.format(player.current_enemy.current_hp, player.current_enemy.max_hp))
+
+            enemy_mid_mp_bar = (' ' * (enemy_health_bar_spacing - len(line_8)) + standing_line +
+                                colorama.Fore.BLUE + block * enemy_mp + " " * (10 - enemy_mp) +
+                                colorama.Style.RESET_ALL + standing_line +
+                                '{}/{} mp'.format(player.current_enemy.current_mp, player.current_enemy.max_mp))
+
+            enemy_mid_stamina_bar = (' ' * (enemy_health_bar_spacing - len(line_9)) + standing_line +
+                                     colorama.Fore.GREEN + block * enemy_stamina + " " * (10 - enemy_stamina) +
+                                     colorama.Style.RESET_ALL + standing_line +
+                                     '{}/{} stamina'.format(player.current_enemy.current_mp,
+                                                            player.current_enemy.max_mp))
 
             log_lines = 4
             max_spacing = max(
@@ -153,23 +211,27 @@ class Console:
             spacing_4 = " " * (max_spacing - len(GameMaster.action_log[len(GameMaster.action_log) - 4]))
             spacing_5 = " " * (max_spacing - len(GameMaster.action_log[len(GameMaster.action_log) - 5]))
 
-            action_log_mid_1 = (' ' * (overlapping_action_log_spacing - (len(player_mid_healthbar) - 9) +
+            action_log_mid_1 = (' ' * (overlapping_action_log_spacing - (len(player_mid_health_bar) - 9) +
                                 (overlapping_action_log_spacing_special - len(line_23)))
                                 + standing_line +
                                 GameMaster.action_log[len(GameMaster.action_log) - 1]
                                 + spacing_1 + standing_line)
 
-            action_log_mid_2 = (' ' * (overlapping_action_log_spacing - len(player_bot_healthbar) +
+            action_log_mid_2 = (' ' * (overlapping_action_log_spacing - (len(player_mid_mp_bar) - 9) +
                                        (overlapping_action_log_spacing_special - len(line_24)))
                                 + standing_line +
                                 GameMaster.action_log[len(GameMaster.action_log) - 2]
                                 + spacing_2 + standing_line)
 
-            action_log_mid_3 = (' ' * (normal_action_log_spacing - len(line_25)) + standing_line +
+            action_log_mid_3 = (' ' * (overlapping_action_log_spacing - (len(player_mid_stamina_bar) - 9) +
+                                       (overlapping_action_log_spacing_special - len(line_25)))
+                                + standing_line +
                                 GameMaster.action_log[len(GameMaster.action_log) - 3]
                                 + spacing_3 + standing_line)
 
-            action_log_mid_4 = (' ' * (normal_action_log_spacing - len(line_26)) + standing_line +
+            action_log_mid_4 = (' ' * (overlapping_action_log_spacing - (len(player_bot_bar)) +
+                                       (overlapping_action_log_spacing_special - len(line_26)))
+                                + standing_line +
                                 GameMaster.action_log[len(GameMaster.action_log) - 4]
                                 + spacing_4 + standing_line)
 
@@ -177,20 +239,24 @@ class Console:
                                 GameMaster.action_log[len(GameMaster.action_log) - 5]
                                 + spacing_5 + standing_line)
 
-            action_log_top = (' ' * (overlapping_action_log_spacing - len(player_top_healthbar) +
+            action_log_top = (' ' * (overlapping_action_log_spacing - (len(player_top_health_bar) - invisible_text) +
                                      (overlapping_action_log_spacing_special - len(line_22))) + " " +
                               "_" * max_spacing + "Action log")
 
             action_log_bot = (" " + ' ' * (normal_action_log_spacing - len(line_27)) + top_line * max_spacing)
 
-        # If we don't want the battle layout, the healthbars and the log will instead be empty strings
+        # If we don't want the battle layout, the health_bars and the log will instead be empty strings
         else:
-            enemy_top_healthbar = ""
-            enemy_mid_healthbar = ""
-            enemy_bot_healthbar = ""
-            player_mid_healthbar = ""
-            player_top_healthbar = ""
-            player_bot_healthbar = ""
+            enemy_top_health_bar = ""
+            enemy_mid_health_bar = ""
+            enemy_mid_mp_bar = ""
+            enemy_mid_stamina_bar = ""
+            enemy_bot_bar = ""
+            player_mid_health_bar = ""
+            player_mid_stamina_bar = ""
+            player_mid_mp_bar = ""
+            player_bot_bar = ""
+            player_top_health_bar = ""
             action_log_top = ""
             action_log_bot = ""
             action_log_mid_1 = ""
@@ -201,17 +267,19 @@ class Console:
 
         # Joining all the strings to be printed
         lines = {0: line_1, 1: line_2, 2: line_3, 3: line_4, 4: line_5,
-                 5: line_6 + enemy_top_healthbar,
-                 6: line_7 + enemy_mid_healthbar,
-                 7: line_8 + enemy_bot_healthbar,
-                 8: line_9, 9: line_10, 10: line_11, 11: line_12, 12: line_13,
+                 5: line_6 + enemy_top_health_bar,
+                 6: line_7 + enemy_mid_health_bar,
+                 7: line_8 + enemy_mid_mp_bar,
+                 8: line_9 + enemy_mid_stamina_bar,
+                 9: line_10 + enemy_bot_bar,
+                 10: line_11, 11: line_12, 12: line_13,
                  13: line_14, 14: line_15, 15: line_16, 16: line_17, 17: line_18,
                  18: line_19, 19: line_20, 20: line_21,
-                 21: line_22 + player_top_healthbar + action_log_top,
-                 22: line_23 + player_mid_healthbar + action_log_mid_1,
-                 23: line_24 + player_bot_healthbar + action_log_mid_2,
-                 24: line_25 + action_log_mid_3,
-                 25: line_26 + action_log_mid_4,
+                 21: line_22 + player_top_health_bar + action_log_top,
+                 22: line_23 + player_mid_health_bar + action_log_mid_1,
+                 23: line_24 + player_mid_mp_bar + action_log_mid_2,
+                 24: line_25 + player_mid_stamina_bar + action_log_mid_3,
+                 25: line_26 + player_bot_bar + action_log_mid_4,
                  26: line_27 + action_log_mid_5,
                  27: line_28 + action_log_bot,
                  28: line_29}
@@ -304,7 +372,6 @@ class Console:
                 custom_area[custom_area.index(sublist)][3] *= font_size_y
                 custom_area[custom_area.index(sublist)][3] += console_y_border
 
-
         def on_click(x, y, button, pressed):
             # Checking whether a left click is performed
             if pressed and button == pynput.mouse.Button.left:
@@ -390,7 +457,7 @@ supported_Statuses = {
             'head_type': 'debuff',
             'apply_type': 'start_dot',
             'type': 'burning',
-            'description': 'bleeding',
+            'description': 'Bleed',
             'on_apply_message_player': 'You better stop this bleeding soon... You take',
             'on_apply_message_enemy': 'Blood spills forth as the enemy takes'
         },
@@ -398,7 +465,7 @@ supported_Statuses = {
         {
             'head_type': 'debuff',
             'apply_type': '',
-            'description': 'stunned',
+            'description': 'Stun',
             'on_apply_message_player': 'Your head feels too dizzy to do anything.',
             'on_apply_message_enemy': 'Looks like {} is too dizzy to act'
         }
@@ -548,13 +615,13 @@ class Weapon(Item):
 class Bare(Wearable):
     item_id = 1
 
-    set_effect_description_good = 'People are astonished by your amazing body, increasing your speech by '
-    set_effect_description_bad = "People won't trust you, running around without clothes, decreasing your speech by "
+    set_effect_description_good = 'People are astonished by your amazing body, increasing your charisma by '
+    set_effect_description_bad = "People won't trust you, running around without clothes, decreasing your charisma by "
 
     effect_inspect_text = "If you're weak and naked, no one will trust you, making negotiating harder.\n" \
                           "However, if you're buff, people will be amazed, making negotiating easier"
 
-    change_type = "speech"
+    change_type = "charisma"
     inspect_flavor_text = 'Get some real clothes, you hobo'
 
     class Head:
@@ -573,7 +640,11 @@ class Bare(Wearable):
         crit_mod = 0
         speed_mod = 10
         damage_mod = 0
-        int_mod = 0
+        charisma_mod = 0
+        intelligence_mod = 0
+        hp_regen_mod = 0
+        mp_regen_mod = 0
+        stamina_regen_mod = 0
         description_good = 'Even though your face looks terrible, people are distracted by your glorious body,'
         effect_amount_good = 0
         description_bad = 'Your face looks terrible, it will make negotiating harder'
@@ -595,7 +666,11 @@ class Bare(Wearable):
         crit_mod = 0
         speed_mod = 10
         damage_mod = 0
-        int_mod = 0
+        charisma_mod = 0
+        intelligence_mod = 0
+        hp_regen_mod = 0
+        mp_regen_mod = 0
+        stamina_regen_mod = 1
         description_good = 'Nice gains, bro'
         effect_amount_good = 4
         description_bad = 'You even lift, bro?'
@@ -617,7 +692,11 @@ class Bare(Wearable):
         crit_mod = 0
         speed_mod = 10
         damage_mod = 0
-        int_mod = 0
+        charisma_mod = 0
+        intelligence_mod = 0
+        hp_regen_mod = 0
+        mp_regen_mod = 0
+        stamina_regen_mod = 0
         description_good = 'Not wearing pants only seems to be in your flavor with such a body'
         effect_amount_good = 1
         description_bad = 'Oh please, at least put some pants on'
@@ -645,7 +724,7 @@ class Bare(Wearable):
                 change_amount += Bare.Chest.effect_amount_good
             if legs:
                 change_amount += Bare.Legs.effect_amount_good
-            return "speech", change_amount, Bare.set_effect_description_good
+            return "charisma", change_amount, Bare.set_effect_description_good
         else:
             if head:
                 change_amount -= Bare.Head.effect_amount_bad
@@ -653,20 +732,20 @@ class Bare(Wearable):
                 change_amount -= Bare.Chest.effect_amount_bad
             if legs:
                 change_amount -= Bare.Legs.effect_amount_bad
-            return "speech", change_amount, Bare.set_effect_description_bad
+            return "charisma", change_amount, Bare.set_effect_description_bad
 
 
 class Leaves(Wearable):
     item_id = 2
 
     set_effect_description_good = "People are happy that you're hiding at least a little of your weak body, " \
-                                  "increasing your speech by "
+                                  "increasing your charisma by "
     set_effect_description_bad = "People are disappointed that you're hiding your glorious body, decreasing " \
-                                 "your speech by "
+                                 "your charisma by "
     effect_inspect_text = "If you're weak, people will respect you for hiding your weak body, increasing your " \
-                          "speech\nHowever, if you're buff, people will become angry for not showing yourself," \
-                          " decreasing your speech"
-    change_type = "speech"
+                          "charisma\nHowever, if you're buff, people will become angry for not showing yourself," \
+                          " decreasing your charisma"
+    change_type = "charisma"
     inspect_flavor_text = 'Mother nature to the rescue!'
 
     class Head:
@@ -685,7 +764,11 @@ class Leaves(Wearable):
         crit_mod = 0
         speed_mod = 13
         damage_mod = 0
-        int_mod = 3
+        charisma_mod = 0
+        intelligence_mod = 3
+        hp_regen_mod = 0
+        mp_regen_mod = 0
+        stamina_regen_mod = 0
         description_good = 'Your leaf crown actually hides your horrible face pretty well'
         effect_amount_good = 1
         description_bad = "People don't really mind your face since your body is so muscular"
@@ -707,7 +790,11 @@ class Leaves(Wearable):
         crit_mod = 0
         speed_mod = 13
         damage_mod = 0
-        int_mod = 3
+        charisma_mod = 0
+        intelligence_mod = 3
+        hp_regen_mod = 0
+        mp_regen_mod = 1
+        stamina_regen_mod = 0
         description_good = 'This finely crafted leaf chestmail hides your weak chest perfectly'
         effect_amount_good = 2
         description_bad = 'Why hide your amazing chest?'
@@ -729,7 +816,11 @@ class Leaves(Wearable):
         crit_mod = 0
         speed_mod = 13
         damage_mod = 0
-        int_mod = 3
+        charisma_mod = 0
+        intelligence_mod = 3
+        hp_regen_mod = 0
+        mp_regen_mod = 0
+        stamina_regen_mod = 0
         description_good = 'People are looking happy that you at least covered up your private parts'
         effect_amount_good = 4
         description_bad = 'People look angry that you hide your amazing body'
@@ -758,7 +849,7 @@ class Leaves(Wearable):
                 change_amount += Leaves.Chest.effect_amount_good
             if legs:
                 change_amount += Leaves.Legs.effect_amount_good
-            return "speech", change_amount, Leaves.set_effect_description_good
+            return "charisma", change_amount, Leaves.set_effect_description_good
         else:
             if head:
                 change_amount -= Leaves.Head.effect_amount_bad
@@ -766,7 +857,7 @@ class Leaves(Wearable):
                 change_amount -= Leaves.Chest.effect_amount_bad
             if legs:
                 change_amount -= Leaves.Legs.effect_amount_bad
-            return "speech", change_amount, Leaves.set_effect_description_bad
+            return "charisma", change_amount, Leaves.set_effect_description_bad
 
 
 # Initiating all items
@@ -788,6 +879,9 @@ class GameMaster:
     # This is the class where we store data which do not make sense to contain in the player class
     last_interactive_choice_call = {'cases': [], 'head_string': '', 'battle': False}
     settings = {}
+    stats = ('crit', 'charisma', 'speed', 'awareness', 'strength', 'intelligence',
+             'dodge', 'prot', 'hp_regen', 'mp_regen', 'stamina_regen')
+    percent_stats = ('crit', 'dodge', 'prot')
     Bare_set = (Bare.Head, Bare.Chest, Bare.Legs)
     no_s_at_end_exceptions = ('Gold',)
     game_name = "Please select a game name"
@@ -827,7 +921,8 @@ class Character:
     speed: int
 
     def __init__(self, name, gender, dodge, speed, intelligence, prot,
-                 crit, awareness, max_hp, strength, description=""):
+                 crit, charisma, awareness, max_hp, max_stamina, max_mp, hp_regen,
+                 stamina_regen, mp_regen, strength, description=""):
         self.name = name
         name_split = name.split()
         self.first_name = name_split[0]
@@ -838,9 +933,17 @@ class Character:
         self.gender = gender
         self.prot = prot
         self.crit = crit
+        self.charisma = charisma
         self.awareness = awareness
         self.max_hp = max_hp
         self.current_hp = max_hp
+        self.max_mp = max_mp
+        self.current_mp = max_mp
+        self.max_stamina = max_stamina
+        self.current_stamina = max_stamina
+        self.hp_regen = hp_regen
+        self.mp_regen = mp_regen
+        self.stamina_regen = stamina_regen
         self.strength = strength
         self.description = ""
         self.Statuses = {}
@@ -851,7 +954,8 @@ class Character:
     def calculate_stat_change(self, stat, stat_value):
         for status in self.Statuses:
             try:
-                if supported_Statuses[status] == stat:
+                if status == stat:
+                    debug_logger.debug("{} in {}".format(stat, player.Statuses))
                     stat_value += player.Statuses[status]['amount']
             except KeyError:
                 pass
@@ -1012,9 +1116,9 @@ class Character:
             stat_value += chest.crit_mod
             stat_value += legs.crit_mod
         elif stat == 'intelligence':
-            stat_value += head.int_mod
-            stat_value += chest.int_mod
-            stat_value += legs.int_mod
+            stat_value += head.intelligence_mod
+            stat_value += chest.intelligence_mod
+            stat_value += legs.intelligence_mod
         elif stat == 'dodge':
             stat_value += head.dodge_mod
             stat_value += chest.dodge_mod
@@ -1027,6 +1131,22 @@ class Character:
             stat_value += head.damage_mod
             stat_value += chest.damage_mod
             stat_value += legs.damage_mod
+        elif stat == 'charisma':
+            stat_value += head.charisma_mod
+            stat_value += chest.charisma_mod
+            stat_value += legs.charisma_mod
+        elif stat == 'hp_regen':
+            stat_value += head.hp_regen_mod
+            stat_value += chest.hp_regen_mod
+            stat_value += legs.hp_regen_mod
+        elif stat == 'mp_regen':
+            stat_value += head.mp_regen_mod
+            stat_value += chest.mp_regen_mod
+            stat_value += legs.mp_regen_mod
+        elif stat == 'stamina_regen':
+            stat_value += head.stamina_regen_mod
+            stat_value += chest.stamina_regen_mod
+            stat_value += legs.stamina_regen_mod
 
         if stat_value > 100:
             return 100
@@ -1365,6 +1485,13 @@ class Character:
                 error_logger.error("unknown move: {} at add_move".format(new_move.__name__))
 
         def calming_heal(self):
+            if self.parent.current_mp < 5:
+                if self.parent == player:
+                    return "You do not have enough mp to use this move"
+                else:
+                    return
+            else:
+                self.parent.current_mp -= 5
             amount_healed = int((self.parent.current_hp / 5) + (self.parent.max_hp / 10))
             amount_healed = int(amount_healed * ((self.parent.calculate_stat_change(
                                                   'intelligence', self.parent.intelligence) / 100) + 1))
@@ -1393,6 +1520,14 @@ class Character:
                     return "{} heals for {} hp and becomes calmer".format(self.parent.first_name, amount_healed)
 
         def intense_heal(self):
+            if self.parent.current_mp < 7:
+                if self.parent == player:
+                    return "You do not have enough mp to use this move"
+                else:
+                    return
+
+            else:
+                self.parent.current_mp -= 7
             amount_healed = int((self.parent.current_hp / 3) + (self.parent.max_hp / 4))
             amount_healed = int(amount_healed * ((self.parent.calculate_stat_change(
                                                   'intelligence', self.parent.intelligence) / 100) + 1))
@@ -1405,7 +1540,8 @@ class Character:
             else:
                 return "{} enemy heals for {} hp".format(self.parent.first_name, amount_healed)
 
-    def apply_effect(self, status, duration=0, effect_amount=0):
+    def apply_status(self, status, duration=0, effect_amount=0):
+        stat_statuses = ('crit', 'prot', 'intelligence', 'dodge', 'strength', 'charisma')
         if status in supported_Statuses:
             if status in self.Statuses:
                 if status == Statuses.stun:
@@ -1419,9 +1555,19 @@ class Character:
                     self.Statuses[status] = {}
                     self.Statuses[status]['duration'] = duration
                     self.Statuses[status]['amount'] = effect_amount
+
+        elif status in stat_statuses:
+            if status in self.Statuses:
+                self.Statuses[status]['duration'] += duration
+                self.Statuses[status]['amount'] += effect_amount
+            else:
+                self.Statuses[status] = {}
+                self.Statuses[status]['duration'] = duration
+                self.Statuses[status]['amount'] = effect_amount
         else:
             error_logger.error("Unknown Effect: {}".format(status))
 
+    """
     awareness_levels = {95: "paranoid", 90: "on guard", 80: "alert",
                         60: "drowsy", 30: "distracted", 20: "panicking"}
 
@@ -1482,6 +1628,7 @@ class Character:
             return stat_levels[min(list(stat_levels.keys()), key=lambda x: abs(x - stat))]
         else:
             return stat_levels[min(list(stat_levels.keys()), key=lambda x: abs(x - custom_stat))]
+    """
 
     def deal_damage(self, damage):
         self.current_enemy.current_hp -= damage
@@ -1498,27 +1645,77 @@ class Character:
         # Checking Whether to add descriptions for ones statuses
         # If so, creates a list with all the current statuses's descriptions
         if not len(self.Statuses) == 0:
-            status_descriptions = []
-            for status in self.Statuses:
-                status_descriptions.append(supported_Statuses[status]['description'])
+            if GameMaster.settings['nerd mode']:
+                status_string = ""
+                temp_descritions = []
+                for status in self.Statuses:
+                    if status in supported_Statuses:
+                        new_status = ""
+                        new_status += "{}: ".format(supported_Statuses[status]['description'])
+                        if self.Statuses[status]['duration'] > 1:
+                            end = "s"
+                        else:
+                            end = ""
 
-            # Creates a pretty string, properly joining the descriptions with " ", "," and "and"
-            status_string = ""
-            for status in status_descriptions:
-                if status_descriptions.index(status) == (len(status_descriptions) - 2):
-                    status_string = status_string + status + " "
-                elif status_descriptions.index(status) == (len(status_descriptions) - 1):
-                    if not len(status_string) == 0:
-                        status_string = status_string + "and " + status + "."
+                        new_status += "{} turn{}".format(self.Statuses[status]['duration'], end)
                     else:
-                        status_string = status_string + status + "."
-                else:
-                    status_string = status_string + status + ", "
+                        new_status = "{} increased by {} for {} turn".format(status.capitalize(),
+                                                                             self.Statuses[status]['amount'],
+                                                                             self.Statuses[status]['duration'])
 
-            if self == player:
-                current_states = "\nYou are {}".format(status_string)
+                        if self.Statuses[status]['duration'] > 1:
+                            end = "s"
+                        else:
+                            end = ""
+
+                        new_status += end
+
+                    temp_descritions.append(new_status)
+
+                counter = 0
+                for status in temp_descritions:
+                    counter += 1
+                    if temp_descritions.index(status) == 0:
+                        status_string += status
+                    else:
+                        if counter >= 3:
+                            status_string += ", {}\n".format(status)
+                            counter = 0
+                        else:
+                            if status.endswith("\n"):
+                                status_string += status
+                            else:
+                                status_string += ", {}".format(status)
+
+                if self == player:
+                    current_states = "\nCurrent statuses:\n{}".format(status_string)
+                else:
+                    current_states = "\n{} is {}".format(gender_pronoun_2.capitalize(), status_string)
+
             else:
-                current_states = "\n{} is {}".format(gender_pronoun_2.capitalize(), status_string)
+                status_descriptions = []
+                for status in self.Statuses:
+                    if status in supported_Statuses:
+                        status_descriptions.append(supported_Statuses[status]['description'])
+
+                # Creates a pretty string, properly joining the descriptions with " ", "," and "and"
+                status_string = ""
+                for status in status_descriptions:
+                    if status_descriptions.index(status) == (len(status_descriptions) - 2):
+                        status_string = status_string + status + " "
+                    elif status_descriptions.index(status) == (len(status_descriptions) - 1):
+                        if not len(status_string) == 0:
+                            status_string = status_string + "and " + status + "."
+                        else:
+                            status_string = status_string + status + "."
+                    else:
+                        status_string = status_string + status + ", "
+
+                if self == player:
+                    current_states = "\nYou are {}".format(status_string)
+                else:
+                    current_states = "\n{} is {}".format(gender_pronoun_2.capitalize(), status_string)
+
         else:
             # If the enemy is not afflicted, an empty string will be returned to be sued
             current_states = ""
@@ -1531,26 +1728,54 @@ class Character:
         temp_dodge = self.calculate_stat_change('dodge', self.dodge)
         temp_prot = self.calculate_stat_change('prot', self.prot)
         temp_crit = self.calculate_stat_change('crit', self.crit)
+        temp_hp_regen = self.calculate_stat_change("hp_regen", self.hp_regen)
+        temp_mp_regen = self.calculate_stat_change("mp_regen", self.mp_regen)
+        temp_stamina_regen = self.calculate_stat_change("stamina_regen", self.stamina_regen)
+        temp_charisma = self.calculate_stat_change("charisma", self.charisma)
 
         # Joining all the string together
         # Different depending on if the target is the player or the enemy
         if isinstance(target, Player):
             if GameMaster.settings['nerd mode']:
-                return ("You have {}/{} hp. Your current strength is {} and your intelligence is {}."
+                return ("Level: {}.\n"
+                        "Hp: {}/{}, mp: {}/{}, stamina: {}/{}.\n"
+                        "Hp regen: {}, mp regen: {}, stamina regen: {}.\n"
+                        "Strength: {}, intelligence: {}, crit: {}%.\n"
+                        "Prot: {}%, dodge: {}%, speed: {}, awareness: {}, charisma: {}."
+                        "{}"
+                        .format(self.level, self.current_hp, self.max_hp, self.current_mp, self.max_mp,
+                                self.current_stamina, self.max_stamina,
+                                temp_hp_regen, temp_mp_regen, temp_stamina_regen,
+                                temp_strength, temp_intelligence, temp_crit, temp_prot, temp_dodge,
+                                temp_speed, temp_awareness, temp_charisma, current_states))
+
+
+
+            else:
+                return ("You have {}/{} hp, {}/{}mp and {}/{} stamina."
+                        "\nYour hp regen is {}, your mp regen is {} and your stamina regen is {}."
+                        "\nYour current strength is {} and your intelligence is {}."
                         "\nYour current awareness is {} and your speed is {}. You will block {}% of incoming damage."
                         "\nYou have {}% chance to dodge incoming attacks and {}% to critically strike the enemy for "
                         "double damage.{}"
-                        .format(self.current_hp, self.max_hp, temp_strength, temp_intelligence,
-                                temp_awareness, temp_speed, temp_prot, temp_dodge, temp_crit, current_states))
-            else:
-                return ("You have {}/{} hp. Your current strength is {} and your intelligence is {}.\nYour attacks "
-                        "damage are {} to be doubled by striking critically"
-                        "\nYou are currently {} and {}.\nYou will block {} of incoming attacks and are {} to dodge "
-                        "incoming attacks"
-                        ".{}"
-                        .format(self.current_hp, self.max_hp, temp_strength, temp_intelligence, self.stat_level('crit'),
+                        .format(self.current_hp, self.max_hp, self.current_mp, self.max_mp, self.current_stamina,
+                                self.max_stamina, temp_hp_regen, temp_mp_regen, temp_stamina_regen,
+                                temp_strength, temp_intelligence, temp_awareness, temp_speed,
+                                temp_prot, temp_dodge, temp_crit, current_states))
+                """
+                return ("You have {}/{} hp, {}/{}mp and {}/{} stamina.\n"
+                        "Your hp regen is {}, your mp regen is {} and your stamina regen is {}.\n"
+                        "Your current strength is {} and your intelligence is {}.\n"
+                        "You are currently {} and {}.\nYou will block {} of incoming attacks and are {} to dodge "
+                        "incoming attacks.\n"
+                        "Your attacks damage are {} to be doubled by striking critically."
+                        "{}"
+                        .format(self.current_hp, self.max_hp, self.current_mp, self.max_mp, self.current_stamina,
+                                self.max_stamina, self.hp_regen, self.mp_regen, self.stamina_regen,
+                                temp_strength, temp_intelligence, self.stat_level('crit'),
                                 self.stat_level('awareness'), self.stat_level('speed'),
                                 self.stat_level('prot'), self.stat_level('dodge'), current_states))
+                """
         else:
             if GameMaster.settings['nerd mode']:
                 return ("{}.\n{} has {}/{} hp. {} strength is {} and {} intelligence is {}. {} critical strike chance "
@@ -1576,9 +1801,13 @@ class Character:
 class Player(Character):
     # noinspection PyMissingConstructor
     def __init__(self, name, gender):
+        self.level = 1
         super(Player, self).__init__(name, gender, random.randint(20, 80), random.randint(50, 80),
                                      random.randint(5, 10), random.randint(0, 5), random.randint(1, 5),
-                                     random.randint(70, 100), random.randint(25, 30), random.randint(5, 10))
+                                     random.randint(5, 10), random.randint(70, 100), random.randint(25, 30),
+                                     random.randint(10, 15), random.randint(10, 15),
+                                     1 if random.randint(0, 100) > 80 else 0,
+                                     random.randint(1, 3), random.randint(1, 3), random.randint(5, 10))
 
     @staticmethod
     def loot_drop():
@@ -1618,8 +1847,39 @@ class Orc(Enemy):
                  prot: int, crit, awareness: int, *drops, injured: float = False):
 
         self.rank = rank
-        max_hp = int(player.current_hp * (rank * 0.5)) + (random.randint(-int(player.max_hp * 0.3),
-                                                                         int(player.max_hp * 0.3)))
+        max_hp = int(player.max_hp * (rank * 0.7)) + (random.randint(-int(player.max_hp * 0.2),
+                                                                     int(player.max_hp * 0.4)))
+
+        max_mp = int(player.max_mp * (rank * 0.3)) + (random.randint(-int(player.max_mp * 0.5),
+                                                                     int(player.max_mp * 0.2)))
+
+        max_stamina = int(player.max_stamina * (rank * 0.7)) + (random.randint(-int(player.max_stamina * 0.3),
+                                                                               int(player.max_stamina * 0.4)))
+
+        hp_regen = round(random.randint(-int(player.hp_regen * (rank * 0.8)),
+                                        int(player.hp_regen * (rank * 0.3))))
+
+        mp_regen = random.randint(-int(player.mp_regen * (rank * 0.7),
+                                  int(player.mp_regen * (rank * 0.3))))
+
+        stamina_regen = random.randint(-int(player.stamina_regen * (rank * 0.5)),
+                                       int(player.stamina_regen * (rank * 0.3)))
+
+        if max_mp < 10:
+            max_mp = 10
+
+        if max_stamina < 10:
+            max_stamina = 10
+
+        if hp_regen < 0:
+            hp_regen = 0
+
+        if stamina_regen < 0:
+            stamina_regen = 0
+
+        if stamina_regen < 0:
+            stamina_regen = 0
+
         strength = round(player.max_hp * (rank * 0.1)) + rank * 2
 
         dodge += random.randint(-20, -40)
@@ -1634,11 +1894,14 @@ class Orc(Enemy):
         if intelligence < 0:
             intelligence = 0
 
+        charisma = 0
+
         self.drops = []
         for item in drops:
             self.drops.append(item)
-        super(Orc, self).__init__(name, gender, dodge, speed, intelligence, prot, crit, awareness, max_hp,
-                                  strength, description=description)
+        super(Orc, self).__init__(name, gender, dodge, speed, intelligence, prot, crit, charisma, awareness, max_hp,
+                                  max_stamina, max_mp, hp_regen, stamina_regen, mp_regen, strength,
+                                  description=description)
 
         self.current_hp += random.randint(round(-3 * (self.rank * 0.5)), round(5 * (self.rank * 0.5)))
 
@@ -1658,14 +1921,48 @@ class Animal(Enemy):
                  prot: int, crit, awareness: int, *drops, injured: float = False):
 
         self.rank = rank
-        max_hp = int(player.current_hp * (rank * 0.5)) + (random.randint(-int(player.max_hp * 0.3),
-                                                                         int(player.max_hp * 0.3)))
+        max_hp = int(player.current_hp * (rank * 0.4)) + (random.randint(-int(player.max_hp * 0.3),
+                                                                         int(player.max_hp * 0.25)))
+
+        max_mp = int(player.max_mp * (rank * 0.2)) + (random.randint(-int(player.max_mp * 0.5),
+                                                                     int(player.max_mp * 0.2)))
+
+        max_stamina = int(player.max_stamina * (rank * 0.7)) + (random.randint(-int(player.max_stamina * 0.3),
+                                                                               int(player.max_stamina * 0.4)))
+
+        hp_regen = round(random.randint(-int(player.hp_regen * (rank * 0.8)),
+                                        int(player.hp_regen * (rank * 0.3))))
+
+        mp_regen = random.randint(-int(player.mp_regen * (rank * 0.7)),
+                                  int(player.mp_regen * (rank * 0.3)))
+
+        stamina_regen = random.randint(-int(player.stamina_regen * (rank * 0.4)),
+                                       int(player.stamina_regen * (rank * 0.4)))
+
+        if max_mp < 10:
+            max_mp = 10
+
+        if max_stamina < 10:
+            max_stamina = 10
+
+        if hp_regen < 0:
+            hp_regen = 0
+
+        if stamina_regen < 0:
+            stamina_regen = 0
+
+        if stamina_regen < 0:
+            stamina_regen = 0
+
+        charisma = 0
+
         strength = round(player.max_hp * (rank * 0.1)) + rank * 2
 
         self.drops = []
         for item in drops:
             self.drops.append(item)
-        super(Animal, self).__init__(name, gender, dodge, speed, intelligence, prot, crit, awareness, max_hp,
+        super(Animal, self).__init__(name, gender, dodge, speed, intelligence, prot, crit, charisma, awareness, max_hp,
+                                     max_stamina, max_mp, hp_regen, stamina_regen, mp_regen,
                                      strength, description=description)
 
         self.current_hp += random.randint(round(-3 * (self.rank * 0.5)), round(5 * (self.rank * 0.5)))
@@ -1688,6 +1985,37 @@ class Human(Enemy):
         self.rank = rank
         max_hp = int(player.current_hp * (rank * 0.5)) + (random.randint(-int(player.max_hp * 0.3),
                                                                          int(player.max_hp * 0.3)))
+
+        max_mp = int(player.max_mp * (rank * 0.7)) + (random.randint(-int(player.max_mp * 0.3),
+                                                                     int(player.max_mp * 0.5)))
+
+        max_stamina = int(player.max_stamina * (rank * 0.5)) + (random.randint(-int(player.max_stamina * 0.2),
+                                                                               int(player.max_stamina * 0.4)))
+
+        hp_regen = round(random.randint(-int(player.hp_regen * (rank * 0.8)),
+                                        int(player.hp_regen * (rank * 0.3))))
+
+        mp_regen = random.randint(-int(player.mp_regen * (rank * 0.2),
+                                  int(player.mp_regen * (rank * 0.6))))
+
+        stamina_regen = random.randint(-int(player.stamina_regen * (rank * 0.5)),
+                                       int(player.stamina_regen * (rank * 0.4)))
+
+        if max_mp < 10:
+            max_mp = 10
+
+        if max_stamina < 0:
+            max_stamina = 0
+
+        if hp_regen < 0:
+            hp_regen = 0
+
+        if stamina_regen < 0:
+            stamina_regen = 0
+
+        if stamina_regen < 0:
+            stamina_regen = 0
+
         strength = round(player.max_hp * (rank * 0.1)) + rank * 2
 
         dodge += random.randint(-10, 25)
@@ -1702,10 +2030,15 @@ class Human(Enemy):
         if intelligence < 0:
             intelligence = 0
 
+        charisma = player.charisma + 10
+        if charisma > 100:
+            charisma = 100
+
         self.drops = []
         for item in drops:
             self.drops.append(item)
-        super(Human, self).__init__(name, gender, dodge, speed, intelligence, prot, crit, awareness, max_hp,
+        super(Human, self).__init__(name, gender, dodge, speed, intelligence, prot, crit, charisma, awareness,  max_hp,
+                                    max_stamina, max_mp, hp_regen, stamina_regen, mp_regen,
                                     strength, description=description)
 
         self.current_hp += random.randint(round(-3 * (self.rank * 0.5)), round(5 * (self.rank * 0.5)))
@@ -1726,8 +2059,39 @@ class Skeleton(Enemy):
                  prot: int, crit, awareness: int, *drops, injured: float = False):
 
         self.rank = rank
-        max_hp = int(player.current_hp * (rank * 0.5)) + (random.randint(-int(player.max_hp * 0.3),
-                                                                         int(player.max_hp * 0.3)))
+        max_hp = int(player.max_hp * (rank * 0.3)) + (random.randint(-int(player.max_hp * 0.3),
+                                                                     int(player.max_hp * 0.15)))
+
+        max_mp = int(player.max_mp * (rank * 0.2)) + (random.randint(-int(player.max_mp * 0.5),
+                                                                     int(player.max_mp * 0.2)))
+
+        max_stamina = int(player.max_stamina * (rank * 1.5)) + (random.randint(-int(player.max_stamina * 0.3),
+                                                                               int(player.max_stamina * 0.6)))
+
+        hp_regen = round(random.randint(-int(player.hp_regen * (rank * 0.8)),
+                                        int(player.hp_regen * (rank * 0.3))))
+
+        mp_regen = random.randint(-int(player.mp_regen * (rank * 0.7),
+                                       int(player.mp_regen * (rank * 0.3))))
+
+        stamina_regen = random.randint(-int(player.stamina_regen * (rank * 0.2),
+                                            int(player.stamina_regen * (rank * 0.6))))
+
+        if max_mp < 10:
+            max_mp = 10
+
+        if max_stamina < 10:
+            max_stamina = 10
+
+        if hp_regen <= 0:
+            hp_regen = 0
+
+        if stamina_regen < 0:
+            stamina_regen = 0
+
+        if stamina_regen < 0:
+            stamina_regen = 0
+
         strength = round(player.max_hp * (rank * 0.1)) + rank * 2
 
         dodge += random.randint(10, 25)
@@ -1740,10 +2104,13 @@ class Skeleton(Enemy):
         if prot > 80:
             prot = 80
 
+        charisma = 0
+
         self.drops = []
         for item in drops:
             self.drops.append(item)
-        super(Skeleton, self).__init__(name, gender, dodge, speed, intelligence, prot, crit, awareness, max_hp,
+        super(Skeleton, self).__init__(name, gender, dodge, speed, intelligence, prot, crit, charisma, awareness,
+                                       max_hp, max_stamina, max_mp, hp_regen, stamina_regen, mp_regen,
                                        strength, description=description)
 
         self.current_hp += random.randint(round(-3 * (self.rank * 0.5)), round(5 * (self.rank * 0.5)))
@@ -1790,6 +2157,30 @@ def combat(enemy, location):
     print("{} approaches!".format(enemy.name))
 
     def player_turn():
+        player.current_hp += player.hp_regen
+        if player.current_hp > player.max_hp:
+            player.current_hp = player.max_hp
+
+        player.current_mp += player.mp_regen
+        if player.current_mp > player.max_mp:
+            player.current_mp = player.max_mp
+
+        player.current_stamina += player.stamina_regen
+        if player.current_stamina > player.max_stamina:
+            player.current_stamina = player.max_stamina
+
+        enemy.current_hp += enemy.hp_regen
+        if enemy.current_hp > enemy.max_hp:
+            enemy.current_hp = enemy.max_hp
+
+        enemy.current_mp += enemy.mp_regen
+        if enemy.current_mp > enemy.max_mp:
+            enemy.current_mp = enemy.max_mp
+
+        enemy.current_stamina += enemy.stamina_regen
+        if enemy.current_stamina > enemy.max_stamina:
+            enemy.current_stamina = enemy.max_stamina
+
         print("player")
         for status in list(player.Statuses):
             try:
@@ -1800,13 +2191,14 @@ def combat(enemy, location):
                 pass
 
         for status in player.Statuses:
-            if supported_Statuses[status]['apply_type'] == "start_dot":
-                damage = status(player)
-                GameMaster.extend_action_log("{} {} damage.".format
-                                             (supported_Statuses[status]['on_apply_message_player'], damage))
-                GameMaster.last_damage_player = supported_Statuses[status]['type']
-                player.current_hp -= damage
-                player.alive_check()
+            if status in supported_Statuses:
+                if supported_Statuses[status]['apply_type'] == "start_dot":
+                    damage = status(player)
+                    GameMaster.extend_action_log("{} {} damage.".format
+                                                 (supported_Statuses[status]['on_apply_message_player'], damage))
+                    GameMaster.last_damage_player = supported_Statuses[status]['type']
+                    player.current_hp -= damage
+                    player.alive_check()
 
         def main_choice():
 
@@ -2171,7 +2563,7 @@ def combat(enemy, location):
                                 safe_registry_edit = True
                                 GameMaster.settings['Quickedit'] = new_setting
                             elif GameMaster.settings['Quickedit']:
-                                new_setting = 1
+                                new_setting = 0
                                 safe_registry_edit = True
                                 GameMaster.settings['Quickedit'] = new_setting
                             else:
@@ -2316,14 +2708,19 @@ def on_start():
         with open("{}\\Saves\\Config\\Config.json".format(project_path)) as f:
             GameMaster.settings = json.load(f)
     else:
-        settings = '''
-        {
-            "nerd mode": false,
-            "Quickedit": null,
-            "ForceV2": null
-        }
-        '''
-        GameMaster.settings = json.loads(settings)
+        with open("{}\\Saves\\Config\\Config.json".format(project_path), 'r') as f:
+            test_content = f.readlines()
+            if test_content[0] == "\n" and len(test_content) == 1:
+                GameMaster.settings = json.load(f)
+            else:
+                settings = '''
+                {
+                    "nerd mode": false,
+                    "Quickedit": null,
+                    "ForceV2": null
+                }
+                '''
+                GameMaster.settings = json.loads(settings)
 
     # Setting up some loggers
     # Info logger
@@ -2411,8 +2808,8 @@ if __name__ == '__main__':
     hen.moves = hen.Moves(hen)
     player.moves.add_move(player.moves.calming_heal)
     player.moves.add_move(player.moves.intense_heal)
-    hen.apply_effect(Statuses.stun)
-    player.apply_effect(Statuses.apply_bleed, 10)
+    hen.apply_status(Statuses.stun)
+    player.apply_status(Statuses.apply_bleed, 10)
     player.inventory.add_item(Gold, 10)
-    debug_logger.debug("haitai")
+    player.apply_status("crit", 9, 100)
     combat(hen, "swamp")
