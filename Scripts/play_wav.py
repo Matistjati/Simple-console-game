@@ -7,7 +7,7 @@ import os
 project_path = os.path.dirname(sys.argv[0])
 
 def setup_logger(name, file, level=logging.WARNING):
-    # Function to easily create loggers
+    # function to easily create loggers
 
     handler = logging.FileHandler(file)
     formatter = logging.Formatter("%(asctime)s:%(filename)s:%(message)s")
@@ -21,7 +21,7 @@ def setup_logger(name, file, level=logging.WARNING):
 
 parent_of_scripts = os.path.abspath(os.path.join(project_path, os.pardir))
 
-# Error logger
+# error logger
 error_logger = setup_logger("Error logging", "{}\\Logs\\logging_errors.log".format(parent_of_scripts))
 
 CHUNK_SIZE = 1024
@@ -37,10 +37,10 @@ def play_wav(wav_path, chunk_size=CHUNK_SIZE):
         error_logger.error("EOFError opening file {}".format(wav_path))
         raise SystemExit
 
-    # Instantiate PyAudio.
+    # instantiate PyAudio
     p = pyaudio.PyAudio()
 
-    # Open stream.
+    # open stream
     stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
         channels=wf.getnchannels(),
         rate=wf.getframerate(),
@@ -51,11 +51,11 @@ def play_wav(wav_path, chunk_size=CHUNK_SIZE):
         stream.write(data)
         data = wf.readframes(chunk_size)
 
-    # Stop stream.
+    # stop stream
     stream.stop_stream()
     stream.close()
 
-    # Close PyAudio.
+    # close PyAudio
     p.terminate()
 
 
