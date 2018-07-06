@@ -3,15 +3,19 @@
 import random
 import time
 import os
-import win32gui
-import pynput
 import sys
 import ctypes
-import colorama
 import logging
 import json
 import subprocess
 import winreg
+import pyautogui
+try:
+    import colorama
+    import win32gui
+    import pynput
+except ModuleNotFoundError as missing_module:
+    print("Missing module error: {}".format(missing_module))
 
 
 def closest_match(value, array):
@@ -47,11 +51,8 @@ class Console:
         os.system('cls' if os.name == 'nt' else 'clear')
 
     @staticmethod
-    def console_location_reset():
-        # Sets the console to a specific location and resizes it
-        hwnd = win32gui.GetForegroundWindow()
-        win32gui.MoveWindow(hwnd, GameMaster.console_location_x, GameMaster.console_location_y,
-                            GameMaster.console_height_x, GameMaster.console_height_y, True)
+    def size_reset():
+        # Sets the console to a desired size
         os.system("mode con cols=120 lines=30")
 
     @staticmethod
@@ -61,6 +62,8 @@ class Console:
         # If battle is true, enemy must also be supplied
         # If battle is true, a health_bar for the player and enemy will be printed along with an action log
         Console.clear()
+        enemy = player.current_enemy
+
         if extra_text is not None:
             # Splitting input into a list
             lines_in = extra_text.split("\n")
@@ -155,13 +158,13 @@ class Console:
                     enemy_top_health_bar += "{}*{}".format(colorama.Fore.LIGHTYELLOW_EX, colorama.Style.RESET_ALL)
                 elif status == Statuses.apply_bleed:
                     enemy_top_health_bar += "{}{}{}".format(colorama.Fore.LIGHTRED_EX, chr(191),
-                                                             colorama.Style.RESET_ALL)
+                                                            colorama.Style.RESET_ALL)
                 elif status in GameMaster.stats:
                     if enemy.Statuses[status]['amount'] >= 0:
                         enemy_top_health_bar += "{}^{}".format(colorama.Fore.LIGHTBLUE_EX, colorama.Style.RESET_ALL)
                     else:
                         enemy_top_health_bar += "{}v{}".format(colorama.Fore.YELLOW, chr(8673),
-                                                                colorama.Style.RESET_ALL)
+                                                               colorama.Style.RESET_ALL)
 
             player_hp = int((player.current_hp / player.max_hp) * 10)
             player_mp = int((player.current_mp / player.max_mp) * 10)
@@ -316,9 +319,6 @@ class Console:
 
             return string_output
 
-        # Information about the console to be used during text area calculations
-        Console.console_location_reset()
-
         # Console borders need to be accounted for
         console_x_border: int = GameMaster.x_to_console  # pixels
         console_y_border = GameMaster.y_to_console  # pixels
@@ -341,17 +341,17 @@ class Console:
         else:
             Console.print_with_layout(extra_text=string_out)
 
-        # Calculating the areas which are clickable
-        # First two x values, then two y values in the dict
         if len(custom_area) == 0:
             line_areas = []
             for i in range(0, 31):
                 line_areas.append([])
             for move in cases:
                 line_areas[cases.index(move)].append(console_x_border)
-                line_areas[cases.index(move)].append(len(move) * font_size_x + console_x_border)
+                line_areas[cases.index(move)].append((len(move) * font_size_x) + console_x_border)
 
-                line_areas[cases.index(move)].append(console_y_border + font_size_y * uninteractive_lines)
+                line_areas[cases.index(move)].append(((cases.index(move)) * font_size_y
+                                                      + console_y_border + font_size_y * uninteractive_lines) -
+                                                     8)
                 line_areas[cases.index(move)].append((cases.index(move) + 1) * font_size_y
                                                      + console_y_border + font_size_y * uninteractive_lines)
 
@@ -359,6 +359,7 @@ class Console:
             line_areas = [x for x in line_areas if x != []]
 
         else:
+            line_areas = []
             for sublist in custom_area:
                 custom_area[custom_area.index(sublist)][0] *= font_size_x
                 custom_area[custom_area.index(sublist)][0] += console_x_border
@@ -367,26 +368,61 @@ class Console:
                 custom_area[custom_area.index(sublist)][1] += console_x_border
 
                 custom_area[custom_area.index(sublist)][2] *= font_size_y
-                custom_area[custom_area.index(sublist)][2] += console_y_border
+                custom_area[custom_area.index(sublist)][2] += console_x_border
 
                 custom_area[custom_area.index(sublist)][3] *= font_size_y
-                custom_area[custom_area.index(sublist)][3] += console_y_border
+                custom_area[custom_area.index(sublist)][3] += console_x_border
+
+        def update_area():
+            x_y_window = []
+
+            # noinspection PyUnusedLocal
+            def callback(hwnd, extra):
+                rect = win32gui.GetWindowRect(hwnd)
+                x_window = rect[0]
+                y_window = rect[1]
+                w = rect[2] - x_window
+                h = rect[3] - y_window
+                if win32gui.GetWindowText(hwnd) == GameMaster.game_name:
+                    nonlocal x_y_window
+                    x_y_window = [x_window, y_window]
+
+            win32gui.EnumWindows(callback, None)
+
+            temp_console_x_border = x_y_window[0]
+            temp_console_y_border = x_y_window[1]
+
+            # Calculating the areas which are clickable
+            # First two x values, then two y values in the dict
+            temp_line_areas = list(sub__list.copy() for sub__list in line_areas)
+
+            if len(custom_area) == 0:
+                for sub_list in temp_line_areas:
+                    temp_line_areas[temp_line_areas.index(sub_list)][0] += temp_console_x_border
+                    temp_line_areas[temp_line_areas.index(sub_list)][1] += temp_console_x_border
+                    temp_line_areas[temp_line_areas.index(sub_list)][2] += temp_console_y_border
+                    temp_line_areas[temp_line_areas.index(sub_list)][3] += temp_console_y_border
+
+            return temp_line_areas
 
         def on_click(x, y, button, pressed):
+            temp_line_areas = update_area()
+
             # Checking whether a left click is performed
             if pressed and button == pynput.mouse.Button.left:
                 if len(custom_area) == 0:
-                    for x_y in line_areas:
+                    for x_y in temp_line_areas:
                         # Checking if the mouse input is within the desired area
-                        if x in range(line_areas[line_areas.index(x_y)][0],
-                                      line_areas[line_areas.index(x_y)][1]) and \
-                                y in range(line_areas[line_areas.index(x_y)][2],
-                                           line_areas[line_areas.index(x_y)][3]):
+                        if x in range(temp_line_areas[temp_line_areas.index(x_y)][0],
+                                      temp_line_areas[temp_line_areas.index(x_y)][1]) and \
+                                y in range(temp_line_areas[temp_line_areas.index(x_y)][2],
+                                           temp_line_areas[temp_line_areas.index(x_y)][3]):
                             # For the listener to exit, we need to return false
                             # Therefore, in order to return other values, we use a global variable
                             global case
-                            case = cases[line_areas.index(x_y)]
+                            case = cases[temp_line_areas.index(x_y)]
                             return False
+
                 else:
                     for x_y in custom_area:
 
@@ -955,7 +991,6 @@ class Character:
         for status in self.Statuses:
             try:
                 if status == stat:
-                    debug_logger.debug("{} in {}".format(stat, player.Statuses))
                     stat_value += player.Statuses[status]['amount']
             except KeyError:
                 pass
@@ -1737,6 +1772,7 @@ class Character:
         # Different depending on if the target is the player or the enemy
         if isinstance(target, Player):
             if GameMaster.settings['nerd mode']:
+                # noinspection PyUnresolvedReferences
                 return ("Level: {}.\n"
                         "Hp: {}/{}, mp: {}/{}, stamina: {}/{}.\n"
                         "Hp regen: {}, mp regen: {}, stamina regen: {}.\n"
@@ -1748,8 +1784,6 @@ class Character:
                                 temp_hp_regen, temp_mp_regen, temp_stamina_regen,
                                 temp_strength, temp_intelligence, temp_crit, temp_prot, temp_dodge,
                                 temp_speed, temp_awareness, temp_charisma, current_states))
-
-
 
             else:
                 return ("You have {}/{} hp, {}/{}mp and {}/{} stamina."
@@ -2537,7 +2571,7 @@ def combat(enemy, location):
 
                         setting_to_be_changed = Console.interactive_choice(setting_list,
                                                                            "Click on any of these to change them\n"
-                                                                           "Disabling Quickedit makes the game sort of"
+                                                                           "Disabling Quickedit makes the game sort of "
                                                                            "unplayable",
                                                                            battle=True, back_want=True, enumerated=True)
 
@@ -2618,7 +2652,8 @@ def combat(enemy, location):
     def enemy_turn():
         enemy.deal_damage(enemy.strength)
         result = enemy.Moves.calming_heal(enemy.moves)
-        GameMaster.extend_action_log(result)
+        if result is not None:
+            GameMaster.extend_action_log(result)
         print("enemy")
         print("\n")
         time.sleep(1)
@@ -2676,10 +2711,13 @@ def on_start():
         quickedit_value, _ = winreg.QueryValueEx(registry_key, "Quickedit")
         winreg.CloseKey(registry_key)
     except WindowsError:
-        registry_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Console\\%SystemRoot%_py.exe", 0,
-                                      winreg.KEY_READ)
-        quickedit_value, _ = winreg.QueryValueEx(registry_key, "Quickedit")
-        winreg.CloseKey(registry_key)
+        try:
+            registry_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Console\\%SystemRoot%_py.exe", 0,
+                                          winreg.KEY_READ)
+            quickedit_value, _ = winreg.QueryValueEx(registry_key, "Quickedit")
+            winreg.CloseKey(registry_key)
+        except WindowsError:
+            quickedit_value = False
 
     # Defining the path of the game
     project_path = os.path.dirname(sys.argv[0])
@@ -2704,10 +2742,16 @@ def on_start():
         ctypes.windll.kernel32.SetConsoleTitleA(GameMaster.game_name)
 
     # Setting up the game settings with json
+    loaded: bool = False
     if os.stat("{}\\Saves\\Config\\Config.json".format(project_path)).st_size != 0:
         with open("{}\\Saves\\Config\\Config.json".format(project_path)) as f:
-            GameMaster.settings = json.load(f)
-    else:
+            try:
+                GameMaster.settings = json.load(f)
+                loaded = True
+            except json.JSONDecodeError:
+                error_logger.error("Json_Decode_Error")
+
+    if not loaded:
         with open("{}\\Saves\\Config\\Config.json".format(project_path), 'r') as f:
             test_content = f.readlines()
             if test_content[0] == "\n" and len(test_content) == 1:
@@ -2748,30 +2792,43 @@ def on_start():
 
     # Settings up some info depending on the windows version used
     with open("{}\\Saves\\Config\\Setup.json".format(project_path)) as f:
-        config = json.load(f)
-        os_version = config['os']
-
-    if os_version == 'Windows-8.1' or os_version == 'Windows-8':
-        GameMaster.console_location_x = 0
-        GameMaster.console_location_y = 0
-        GameMaster.font_size_x = 8
-        GameMaster.font_size_y = 12
-        GameMaster.x_to_console = 9
-        GameMaster.y_to_console = 32
-        GameMaster.console_height_x = 0
-        GameMaster.console_location_y = 0
-    elif os_version == 'Windows-10':
-        GameMaster.console_location_x = -9
-        GameMaster.console_location_y = 0
-        GameMaster.font_size_x = 8
-        GameMaster.font_size_y = 16
-        GameMaster.x_to_console = 1
-        GameMaster.y_to_console = 30
-        GameMaster.console_height_x = 980
-        GameMaster.console_height_y = 524
+        try:
+            config = json.load(f)
+            os_version = config['os']
+        except json.JSONDecodeError:
+            os_version = "Windows-10"
+    if len(sys.argv) != 1:
+        if sys.argv[1] == "debug":
+            GameMaster.console_location_x = -9
+            GameMaster.console_location_y = 0
+            GameMaster.font_size_x = 7
+            GameMaster.font_size_y = 12
+            GameMaster.x_to_console = 9
+            GameMaster.y_to_console = 32
+            GameMaster.console_height_x = 0
+            GameMaster.console_location_y = 0
     else:
-        # If the user is using an os i'm not yet supporting
-        error_log.warning("Unsupported os:{}".format(os_version))
+        if os_version == 'Windows-8.1' or os_version == 'Windows-8':
+            GameMaster.console_location_x = 0
+            GameMaster.console_location_y = 0
+            GameMaster.font_size_x = 8
+            GameMaster.font_size_y = 12
+            GameMaster.x_to_console = 9
+            GameMaster.y_to_console = 32
+            GameMaster.console_height_x = 0
+            GameMaster.console_location_y = 0
+        elif os_version == 'Windows-10':
+            GameMaster.console_location_x = -9
+            GameMaster.console_location_y = 0
+            GameMaster.font_size_x = 8
+            GameMaster.font_size_y = 16
+            GameMaster.x_to_console = 1
+            GameMaster.y_to_console = 30
+            GameMaster.console_height_x = 980
+            GameMaster.console_height_y = 524
+        else:
+            # If the user is using an os i'm not yet supporting
+            error_log.warning("Unsupported os:{}".format(os_version))
 
         # Will default to windows 10 settings
         GameMaster.console_location_x = -9
@@ -2783,7 +2840,6 @@ def on_start():
         GameMaster.console_height_x = 980
         GameMaster.console_height_y = 524
 
-    Console.console_location_reset()
     return error_log, info_log, debug_log
 
 
