@@ -4,6 +4,7 @@ import winreg
 import platform
 import logging
 import json
+import ctypes
 
 # Defining this projects path
 project_path = os.path.abspath(os.path.join(os.path.dirname(sys.argv[0]), os.pardir))
@@ -31,7 +32,9 @@ error_log = setup_logger("Error logging", "{}\\Logs\\logging_errors.log".format(
 
 setup = '''
 {
-    "os": null
+    "os": null,
+    "font_size_x": null,
+    "font_size_y": null
 }
 '''
 setup = json.loads(setup)
@@ -70,6 +73,36 @@ else:
     supported_os = False
     error_log.error("Unsupported os: {}. Will use settings for windows 10.".format(os))
 
+
+# Getting the console's font size
+class COORD(ctypes.Structure):
+    _fields_ = [("X", ctypes.c_short), ("Y", ctypes.c_short)]
+
+
+# noinspection PyPep8Naming
+class CONSOLE_FONT_INFO(ctypes.Structure):
+    _fields_ = [("nFont", ctypes.c_uint32),
+                ("dwFontSize", COORD)]
+
+
+font = CONSOLE_FONT_INFO()
+
+STD_OUTPUT_HANDLE = -11
+handle = ctypes.windll.kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
+ctypes.windll.kernel32.GetCurrentConsoleFont(
+    handle,
+    ctypes.c_long(False),
+    ctypes.pointer(font))
+
+if font.dwFontSize.X == 0 and font.dwFontSize.Y == 0:
+    setup['font_size_x'] = 0
+    setup['font_size_y'] = 0
+    error = ctypes.windll.kernel32.GetLastError()
+    error_log.error("Get font size error: msdn error {}".format(error))
+
+else:
+    setup['font_size_x'] = font.dwFontSize.X
+    setup['font_size_y'] = font.dwFontSize.Y
 
 audio_path = "{}\\Audio\\".format(project_path)
 audio_files = ("abc_123_a.ogg",)
@@ -180,18 +213,6 @@ try:
 except FileExistsError:
     pass
 
-if os.stat("{}\\Saves\\Config\\Setup.json".format(project_path)).st_size == 0:
-    with open("{}\\Saves\\Config\\Setup.json".format(project_path), 'w') as f:
-        json.dump(setup, f)
-        info_log.info("Config.json ready, no newlines")
-
-else:
-    with open("{}\\Saves\\Config\\Setup.json".format(project_path), 'r') as f_1:
-        test_content = f_1.readlines()
-        if test_content[0] == "\n" and len(test_content) == 1:
-            with open("{}\\Saves\\Config\\Setup.json".format(project_path), 'w') as f_2:
-                json.dump(setup, f_2)
-                info_log.info("Setup.json ready, containing one newline")
-
-
-
+with open("{}\\Saves\\Config\\Setup.json".format(project_path), 'w') as f:
+    json.dump(setup, f)
+    info_log.info("Setup.json ready, no newlines")
