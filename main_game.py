@@ -9,7 +9,7 @@ import logging
 import json
 import subprocess
 import winreg
-import pyautogui
+
 try:
     import colorama
     import win32gui
@@ -389,6 +389,10 @@ class Console:
 
             win32gui.EnumWindows(callback, None)
 
+            if len(x_y_window) == 0:
+                listener.stop()
+                return
+
             temp_console_x_border = x_y_window[0]
             temp_console_y_border = x_y_window[1]
 
@@ -407,6 +411,8 @@ class Console:
 
         def on_click(x, y, button, pressed):
             temp_line_areas = update_area()
+            if temp_line_areas is None:
+                return
 
             # Checking whether a left click is performed
             if pressed and button == pynput.mouse.Button.left:
@@ -441,6 +447,14 @@ class Console:
         # Checks for mouse clicks, if there are any it calls on_click
         with pynput.mouse.Listener(on_click=on_click) as listener:
             listener.join()
+
+        try:
+            _ = case
+            del _
+        except NameError:
+            print("It seems that you aren't running this game through a console. Please do")
+            input()
+            raise SystemExit
 
         if len(custom_area) == 0:
             if case == "back":
@@ -493,7 +507,8 @@ supported_Statuses = {
             'head_type': 'debuff',
             'apply_type': 'start_dot',
             'type': 'burning',
-            'description': 'Bleed',
+            'description': 'Bleeding',
+            'description_nerd': 'Bleed',
             'on_apply_message_player': 'You better stop this bleeding soon... You take',
             'on_apply_message_enemy': 'Blood spills forth as the enemy takes'
         },
@@ -501,7 +516,8 @@ supported_Statuses = {
         {
             'head_type': 'debuff',
             'apply_type': '',
-            'description': 'Stun',
+            'description': 'Stunned',
+            'description_nerd': 'Stun',
             'on_apply_message_player': 'Your head feels too dizzy to do anything.',
             'on_apply_message_enemy': 'Looks like {} is too dizzy to act'
         }
@@ -922,7 +938,7 @@ class GameMaster:
     no_s_at_end_exceptions = ('Gold',)
     game_name = "Please select a game name"
     last_damage_player = ""
-    vowels = ("a", "o", "u", "e", "i")
+    vowels = ("a", "o", "u", "e", "i", "A", "O", "U", "E", "I")
     action_log = ['               ', '               ', '               ', '               ', '               ',
                   '               ']
 
@@ -1581,11 +1597,13 @@ class Character:
             if status in self.Statuses:
                 if status == Statuses.stun:
                     pass
+                else:
+                    self.Statuses[status]['amount'] += effect_amount
                 self.Statuses[status]['duration'] += duration
-                self.Statuses[status]['amount'] += effect_amount
             else:
                 if status == Statuses.stun:
                     self.Statuses[status] = {}
+                    self.Statuses[status]['duration'] = duration
                 else:
                     self.Statuses[status] = {}
                     self.Statuses[status]['duration'] = duration
@@ -1602,7 +1620,6 @@ class Character:
         else:
             error_logger.error("Unknown Effect: {}".format(status))
 
-    """
     awareness_levels = {95: "paranoid", 90: "on guard", 80: "alert",
                         60: "drowsy", 30: "distracted", 20: "panicking"}
 
@@ -1663,7 +1680,6 @@ class Character:
             return stat_levels[min(list(stat_levels.keys()), key=lambda x: abs(x - stat))]
         else:
             return stat_levels[min(list(stat_levels.keys()), key=lambda x: abs(x - custom_stat))]
-    """
 
     def deal_damage(self, damage):
         self.current_enemy.current_hp -= damage
@@ -1686,18 +1702,25 @@ class Character:
                 for status in self.Statuses:
                     if status in supported_Statuses:
                         new_status = ""
-                        new_status += "{}: ".format(supported_Statuses[status]['description'])
-                        if self.Statuses[status]['duration'] > 1:
-                            end = "s"
-                        else:
-                            end = ""
+                        new_status += "{}: ".format(supported_Statuses[status]['description_nerd'])
+                        try:
+                            if self.Statuses[status]['duration'] > 1:
+                                end = "s"
+                            else:
+                                end = ""
 
-                        new_status += "{} turn{}".format(self.Statuses[status]['duration'], end)
+                            duration = self.Statuses[status]['duration']
+                        except KeyError:
+                            error_logger.error("Status with unknown duration: {}, a {}'s statuses {}"
+                                               .format(self.name, self.__class__.__name__, self.Statuses))
+                            duration = "?"
+                            end = "s"
+
+                        new_status += "{} turn{}".format(duration, end)
                     else:
                         new_status = "{} increased by {} for {} turn".format(status.capitalize(),
                                                                              self.Statuses[status]['amount'],
                                                                              self.Statuses[status]['duration'])
-
                         if self.Statuses[status]['duration'] > 1:
                             end = "s"
                         else:
@@ -1714,8 +1737,14 @@ class Character:
                         status_string += status
                     else:
                         if counter >= 3:
-                            status_string += ", {}\n".format(status)
-                            counter = 0
+                            try:
+                                _ = temp_descritions[temp_descritions.index(status) + 1]
+                                del _
+                                status_string += ", {}\n".format(status)
+                                counter = 0
+                            except IndexError:
+                                status_string += ", {}".format(status)
+                                counter = 0
                         else:
                             if status.endswith("\n"):
                                 status_string += status
@@ -1725,13 +1754,26 @@ class Character:
                 if self == player:
                     current_states = "\nCurrent statuses:\n{}".format(status_string)
                 else:
-                    current_states = "\n{} is {}".format(gender_pronoun_2.capitalize(), status_string)
+                    current_states = "\n{}s statuses:\n{}".format(self.first_name.capitalize(), status_string)
 
             else:
                 status_descriptions = []
                 for status in self.Statuses:
                     if status in supported_Statuses:
                         status_descriptions.append(supported_Statuses[status]['description'])
+                    else:
+                        new_status = "{} is {} increased by {} for {} turn".format(("your" if self == player else
+                                                                                    gender_pronoun_1),
+                                                                                   status.capitalize(),
+                                                                                   self.Statuses[status]['amount'],
+                                                                                   self.Statuses[status]['duration'])
+                        if self.Statuses[status]['duration'] > 1:
+                            end = "s"
+                        else:
+                            end = ""
+
+                        new_status += end
+                        status_descriptions.append(new_status)
 
                 # Creates a pretty string, properly joining the descriptions with " ", "," and "and"
                 status_string = ""
@@ -1749,10 +1791,10 @@ class Character:
                 if self == player:
                     current_states = "\nYou are {}".format(status_string)
                 else:
-                    current_states = "\n{} is {}".format(gender_pronoun_2.capitalize(), status_string)
+                    current_states = "\n{} is {}".format(self.first_name.capitalize(), status_string)
 
         else:
-            # If the enemy is not afflicted, an empty string will be returned to be sued
+            # If the enemy is not afflicted, an empty string will be returned to be used
             current_states = ""
 
         # Applying buffs and debuffs to the values
@@ -1773,62 +1815,66 @@ class Character:
         if isinstance(target, Player):
             if GameMaster.settings['nerd mode']:
                 # noinspection PyUnresolvedReferences
-                return ("Level: {}.\n"
+                return ("Level: {}, xp: {}.\n"
                         "Hp: {}/{}, mp: {}/{}, stamina: {}/{}.\n"
                         "Hp regen: {}, mp regen: {}, stamina regen: {}.\n"
                         "Strength: {}, intelligence: {}, crit: {}%.\n"
                         "Prot: {}%, dodge: {}%, speed: {}, awareness: {}, charisma: {}."
                         "{}"
-                        .format(self.level, self.current_hp, self.max_hp, self.current_mp, self.max_mp,
+                        .format(self.level, self.xp, self.current_hp, self.max_hp, self.current_mp, self.max_mp,
                                 self.current_stamina, self.max_stamina,
                                 temp_hp_regen, temp_mp_regen, temp_stamina_regen,
                                 temp_strength, temp_intelligence, temp_crit, temp_prot, temp_dodge,
                                 temp_speed, temp_awareness, temp_charisma, current_states))
 
             else:
-                return ("You have {}/{} hp, {}/{}mp and {}/{} stamina."
-                        "\nYour hp regen is {}, your mp regen is {} and your stamina regen is {}."
-                        "\nYour current strength is {} and your intelligence is {}."
-                        "\nYour current awareness is {} and your speed is {}. You will block {}% of incoming damage."
-                        "\nYou have {}% chance to dodge incoming attacks and {}% to critically strike the enemy for "
-                        "double damage.{}"
-                        .format(self.current_hp, self.max_hp, self.current_mp, self.max_mp, self.current_stamina,
-                                self.max_stamina, temp_hp_regen, temp_mp_regen, temp_stamina_regen,
-                                temp_strength, temp_intelligence, temp_awareness, temp_speed,
-                                temp_prot, temp_dodge, temp_crit, current_states))
-                """
-                return ("You have {}/{} hp, {}/{}mp and {}/{} stamina.\n"
-                        "Your hp regen is {}, your mp regen is {} and your stamina regen is {}.\n"
-                        "Your current strength is {} and your intelligence is {}.\n"
-                        "You are currently {} and {}.\nYou will block {} of incoming attacks and are {} to dodge "
-                        "incoming attacks.\n"
-                        "Your attacks damage are {} to be doubled by striking critically."
+                # noinspection PyUnresolvedReferences
+                return ("You are level {} and you have {} xp. You have {}/{} hp, {}/{} mp and {}/{} stamina.\n"
+                        "You will regain {} hp, {} mp and {} stamina at the start of your turn.\n"
+                        "Your current strength is {}, your intelligence is {} and your attacks' damage are {} to be "
+                        "doubled.\n"
+                        "You are currently {} and {}.\nYou will block {} of incoming attacks and are {} to dodge them."
                         "{}"
-                        .format(self.current_hp, self.max_hp, self.current_mp, self.max_mp, self.current_stamina,
-                                self.max_stamina, self.hp_regen, self.mp_regen, self.stamina_regen,
-                                temp_strength, temp_intelligence, self.stat_level('crit'),
-                                self.stat_level('awareness'), self.stat_level('speed'),
-                                self.stat_level('prot'), self.stat_level('dodge'), current_states))
-                """
+                        .format(self.level, self.xp, self.current_hp, self.max_hp, self.current_mp, self.max_mp,
+                                self.current_stamina, self.max_stamina, self.hp_regen, self.mp_regen,
+                                self.stamina_regen, temp_strength, temp_intelligence, self.stat_level('crit'),
+                                self.stat_level('awareness'),
+                                self.stat_level('speed'), self.stat_level('prot'),
+                                self.stat_level('dodge'), current_states))
+
         else:
             if GameMaster.settings['nerd mode']:
-                return ("{}.\n{} has {}/{} hp. {} strength is {} and {} intelligence is {}. {} critical strike chance "
-                        "is {}%.\n{} will block {}% of your attacks and has a {}% chance to dodge them."
-                        "\n{} awareness is {} and {} speed is {}.{}".format
-                        (self.description, self.name, self.current_hp, self.max_hp, gender_pronoun_1.capitalize(),
-                         temp_strength, gender_pronoun_1, temp_intelligence,
-                         gender_pronoun_1.capitalize(), temp_crit, gender_pronoun_2.capitalize(), temp_prot, temp_dodge,
-                         gender_pronoun_1.capitalize(), temp_awareness, gender_pronoun_1,
-                         temp_speed, current_states))
+                if self.__class__.__name__[0] in GameMaster.vowels:
+                    prefix = "An"
+                else:
+                    prefix = "A"
+
+                # noinspection PyUnresolvedReferences
+                return("{} {}, Rank {}.\n"
+                       "Hp: {}/{}, mp: {}/{}, stamina: {}/{}.\n"
+                       "Hp regen: {}, mp regen: {}, stamina regen: {}.\n"
+                       "Strength: {}, intelligence: {}, crit: {}%.\n"
+                       "Prot: {}%, dodge: {}%, speed: {}, awareness: {}, charisma: {}."
+                       "{}"
+                       .format(prefix, self.__class__.__name__, self.rank, self.current_hp, self.max_hp,
+                               self.current_mp, self.max_mp, self.current_stamina, self.max_stamina,
+                               temp_hp_regen, temp_mp_regen, temp_stamina_regen,
+                               temp_strength, temp_intelligence, temp_crit, temp_prot, temp_dodge,
+                               temp_speed, temp_awareness, temp_charisma, current_states))
+
             else:
-                return ("{}.\n{} has {}/{} hp. {} strength is {} and {} intelligence is {}.\n{} is currently {} and {}."
-                        "{} is {} to deal double damage with his attacks.\n{} will block {} of your attacks and is {}"
-                        " to dodge them.{}".format
-                        (self.description, self.name, self.current_hp, self.max_hp, gender_pronoun_1.capitalize(),
-                         temp_strength, gender_pronoun_1, temp_intelligence, gender_pronoun_2.capitalize(),
-                         self.stat_level('speed'), self.stat_level('awareness'), gender_pronoun_2.capitalize(),
-                         self.stat_level('crit'), gender_pronoun_2.capitalize(), self.stat_level('prot'),
-                         self.stat_level('dodge'),
+                return ("{}: {}.\n{} has {}/{} hp, {}/{} mp and {}/{} stamina.\n{} will regain {} hp, {} mp and {} "
+                        "stamina at the start of {} turn.\n"
+                        "{} strength is {}, {} intelligence is {} and {} attacks' damage are {} to be doubled.\n"
+                        "{} is currently {} and {}.\n{} will block {} of your attacks and is {} to dodge them.{}"
+                        .format
+                        (self.name, self.description, self.name, self.current_hp, self.max_hp, self.current_mp,
+                         self.max_mp, self.current_stamina, self.max_stamina, gender_pronoun_2.capitalize(),
+                         self.hp_regen, self.mp_regen, self.stamina_regen, gender_pronoun_1,
+                         gender_pronoun_1.capitalize(), temp_strength, gender_pronoun_1, temp_intelligence,
+                         gender_pronoun_1.capitalize(), self.stat_level('crit'),
+                         gender_pronoun_2.capitalize(), self.stat_level('speed'), self.stat_level('awareness'),
+                         gender_pronoun_2.capitalize(), self.stat_level('prot'), self.stat_level('dodge'),
                          current_states))
 
 
@@ -1836,6 +1882,7 @@ class Player(Character):
     # noinspection PyMissingConstructor
     def __init__(self, name, gender):
         self.level = 1
+        self.xp = 0
         super(Player, self).__init__(name, gender, random.randint(20, 80), random.randint(50, 80),
                                      random.randint(5, 10), random.randint(0, 5), random.randint(1, 5),
                                      random.randint(5, 10), random.randint(70, 100), random.randint(25, 30),
@@ -1843,37 +1890,41 @@ class Player(Character):
                                      1 if random.randint(0, 100) > 80 else 0,
                                      random.randint(1, 3), random.randint(1, 3), random.randint(5, 10))
 
-    @staticmethod
-    def loot_drop():
-        print('You successfully defeated {}!'.format(player.current_enemy))
+    def loot_drop(self):
+        print('You successfully defeated {}!'.format(self.current_enemy))
         dropped_items = {}
         if Gold.rarity >= random.randint(0, 100):
-            dropped_items[Gold] = random.randint(player.current_enemy.rank * 25, player.current_enemy.rank * 100)
-        for drop in player.current_enemy.drops:  # last
+            dropped_items[Gold] = random.randint(self.current_enemy.rank * 25, self.current_enemy.rank * 100)
+        for drop in self.current_enemy.drops:  # last
             if drop.rarity >= random.randint(0, 100):
-                dropped_items[drop] = int(drop.rarity * (player.current_enemy.rank * 0.5))
+                dropped_items[drop] = int(drop.rarity * (self.current_enemy.rank * 0.5))
 
-    @staticmethod
-    def alive_check():
-        if player.current_hp <= 0:
+    def alive_check(self):
+        if self.current_hp <= 0:
             if GameMaster.last_damage_player != "":
-                player.dead(GameMaster.last_damage_player)
+                self.dead(GameMaster.last_damage_player)
             else:
                 error_logger.error("Player Took Undocumented Damage")
+                self.dead()
 
     @staticmethod
-    def dead(killer, custom_text: str = ''):
+    def dead(killer=None, custom_text: str = ''):
         Console.clear()
         if custom_text != '':
             print(custom_text)
         else:
-            print("You were killed by {}.".format(killer))
+            if killer is not None:
+                print("You were killed by {}.".format(killer))
+            else:
+                print("You died")
         time.sleep(5)
         main_menu()
 
 
 class Enemy(Character):
-    pass
+    def alive_check(self):
+        if self.current_hp <= 0:
+            player
 
 
 class Orc(Enemy):
@@ -1911,8 +1962,8 @@ class Orc(Enemy):
         if stamina_regen < 0:
             stamina_regen = 0
 
-        if stamina_regen < 0:
-            stamina_regen = 0
+        if mp_regen < 0:
+            mp_regen = 0
 
         strength = round(player.max_hp * (rank * 0.1)) + rank * 2
 
@@ -1985,8 +2036,8 @@ class Animal(Enemy):
         if stamina_regen < 0:
             stamina_regen = 0
 
-        if stamina_regen < 0:
-            stamina_regen = 0
+        if mp_regen < 0:
+            mp_regen = 0
 
         charisma = 0
 
@@ -2047,8 +2098,8 @@ class Human(Enemy):
         if stamina_regen < 0:
             stamina_regen = 0
 
-        if stamina_regen < 0:
-            stamina_regen = 0
+        if mp_regen < 0:
+            mp_regen = 0
 
         strength = round(player.max_hp * (rank * 0.1)) + rank * 2
 
@@ -2123,8 +2174,8 @@ class Skeleton(Enemy):
         if stamina_regen < 0:
             stamina_regen = 0
 
-        if stamina_regen < 0:
-            stamina_regen = 0
+        if mp_regen < 0:
+            mp_regen = 0
 
         strength = round(player.max_hp * (rank * 0.1)) + rank * 2
 
@@ -2795,14 +2846,27 @@ def on_start():
         try:
             config = json.load(f)
             os_version = config['os']
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as json_error:
+            error_log.error("JsonDecodeError: {}".format(json_error))
             os_version = "Windows-10"
+            config = {}
+            config['font_size_x'] = 0
+            config['font_size_y'] = 0
     if len(sys.argv) != 1:
         if sys.argv[1] == "debug":
             GameMaster.console_location_x = -9
             GameMaster.console_location_y = 0
-            GameMaster.font_size_x = 7
-            GameMaster.font_size_y = 12
+
+            if not config['font_size_x']:
+                GameMaster.font_size_x = 7
+            else:
+                GameMaster.font_size_x = config['font_size_x']
+
+            if not config['font_size_y']:
+                GameMaster.font_size_y = 12
+            else:
+                GameMaster.font_size_y = config['font_size_y']
+
             GameMaster.x_to_console = 9
             GameMaster.y_to_console = 32
             GameMaster.console_height_x = 0
@@ -2811,8 +2875,17 @@ def on_start():
         if os_version == 'Windows-8.1' or os_version == 'Windows-8':
             GameMaster.console_location_x = 0
             GameMaster.console_location_y = 0
-            GameMaster.font_size_x = 8
-            GameMaster.font_size_y = 12
+
+            if not config['font_size_x']:
+                GameMaster.font_size_x = 8
+            else:
+                GameMaster.font_size_x = config['font_size_x']
+
+            if not config['font_size_y']:
+                GameMaster.font_size_y = 12
+            else:
+                GameMaster.font_size_y = config['font_size_y']
+
             GameMaster.x_to_console = 9
             GameMaster.y_to_console = 32
             GameMaster.console_height_x = 0
@@ -2820,8 +2893,17 @@ def on_start():
         elif os_version == 'Windows-10':
             GameMaster.console_location_x = -9
             GameMaster.console_location_y = 0
-            GameMaster.font_size_x = 8
-            GameMaster.font_size_y = 16
+
+            if not config['font_size_x']:
+                GameMaster.font_size_x = 8
+            else:
+                GameMaster.font_size_x = config['font_size_x']
+
+            if not config['font_size_y']:
+                GameMaster.font_size_y = 16
+            else:
+                GameMaster.font_size_y = config['font_size_y']
+
             GameMaster.x_to_console = 1
             GameMaster.y_to_console = 30
             GameMaster.console_height_x = 980
@@ -2864,8 +2946,11 @@ if __name__ == '__main__':
     hen.moves = hen.Moves(hen)
     player.moves.add_move(player.moves.calming_heal)
     player.moves.add_move(player.moves.intense_heal)
-    hen.apply_status(Statuses.stun)
+    hen.apply_status(Statuses.stun, 10)
+    hen.apply_status(Statuses.apply_bleed, 10)
+    hen.apply_status('crit', 10, 20)
     player.apply_status(Statuses.apply_bleed, 10)
     player.inventory.add_item(Gold, 10)
     player.apply_status("crit", 9, 100)
+    Console.size_reset()
     combat(hen, "swamp")
