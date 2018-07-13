@@ -187,7 +187,7 @@ if os.stat("{}\\Saves\\Config\\Config.json".format(project_path)).st_size == 0:
         settings['Quickedit'] = quickedit
         settings['ForceV2'] = legacy
         json.dump(settings, f)
-        info_log.info("Config.json ready, no newlines")
+        #info_log.info("Config.json ready, no newlines")
 
 else:
     with open("{}\\Saves\\Config\\Config.json".format(project_path), 'r') as f_1:
@@ -205,7 +205,7 @@ else:
                 settings['Quickedit'] = quickedit
                 settings['ForceV2'] = legacy
                 json.dump(settings, f_2)
-                info_log.info("Config.json ready, one newline")
+                #info_log.info("Config.json ready, one newline")
 
 try:
     with open("{}\\Saves\\Config\\Setup.json".format(project_path), 'x') as f:
@@ -215,4 +215,4 @@ except FileExistsError:
 
 with open("{}\\Saves\\Config\\Setup.json".format(project_path), 'w') as f:
     json.dump(setup, f)
-    info_log.info("Setup.json ready, no newlines")
+    #info_log.info("Setup.json ready, no newlines")
