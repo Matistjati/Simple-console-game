@@ -13,6 +13,7 @@ import logging
 import json
 import subprocess
 import winreg
+import platform
 
 # Importing modules not in standard library
 try:
@@ -45,10 +46,14 @@ def isint(variable_to_test):
 # We only need to pass the name since it looks in the game's music folder
 # A subprocess is used so that it runs in the background and stops if the game is exited
 def play_wav(file_name):
-    project_path = os.path.dirname(sys.argv[0])
+    # Ensuring that we don't play try to play a nonexistant file
+    if file_name not in GameMaster.missing_audio:
+        project_path = os.path.dirname(sys.argv[0])
 
-    subprocess.Popen(["python", "{}\\Scripts\\play_wav.py".format(project_path),
-                      "{}\\Audio\\{}".format(project_path, file_name)], shell=False)
+        subprocess.Popen(["python", "{}\\Scripts\\play_wav.py".format(project_path),
+                          "{}\\Audio\\{}".format(project_path, file_name)], shell=False)
+    else:
+        return
 
 
 class ColoredString(str):
@@ -410,7 +415,8 @@ class Console:
             temp_cases = cases.copy()
             temp_cases.insert(0, head_string)
 
-        temp_cases = ["*" + case for case in temp_cases]
+        if len(custom_area) == 0:
+            temp_cases = ["*" + case for case in temp_cases]
 
         # Printing everything
         Console.print_with_layout(extra_text=temp_cases, battle=battle)
@@ -435,19 +441,19 @@ class Console:
             line_areas = [x for x in line_areas if x != []]
 
         else:
-            line_areas = []
-            for sublist in custom_area:
-                custom_area[custom_area.index(sublist)][0] *= font_size_x
-                custom_area[custom_area.index(sublist)][0] += console_x_border
+            line_areas = [list(row) for row in custom_area]
+            for sublist in line_areas:
+                line_areas[line_areas.index(sublist)][0] *= font_size_x
+                line_areas[line_areas.index(sublist)][0] += console_x_border
 
-                custom_area[custom_area.index(sublist)][1] *= font_size_x
-                custom_area[custom_area.index(sublist)][1] += console_x_border
+                line_areas[line_areas.index(sublist)][1] *= font_size_x
+                line_areas[line_areas.index(sublist)][1] += console_x_border
 
-                custom_area[custom_area.index(sublist)][2] *= font_size_y
-                custom_area[custom_area.index(sublist)][2] += console_x_border
+                line_areas[line_areas.index(sublist)][2] *= font_size_y
+                line_areas[line_areas.index(sublist)][2] += console_x_border
 
-                custom_area[custom_area.index(sublist)][3] *= font_size_y
-                custom_area[custom_area.index(sublist)][3] += console_x_border
+                line_areas[line_areas.index(sublist)][3] *= font_size_y
+                line_areas[line_areas.index(sublist)][3] += console_x_border
 
         def update_area():
             x_y_window = []
@@ -465,6 +471,7 @@ class Console:
 
             win32gui.EnumWindows(callback, None)
 
+            # TODO Support stationary console location
             if len(x_y_window) == 0:
                 listener.stop()
                 return
@@ -476,12 +483,11 @@ class Console:
             # First two x values, then two y values in the dict
             temp_line_areas = list(sub__list.copy() for sub__list in line_areas)
 
-            if len(custom_area) == 0:
-                for sub_list in temp_line_areas:
-                    temp_line_areas[temp_line_areas.index(sub_list)][0] += temp_console_x_border
-                    temp_line_areas[temp_line_areas.index(sub_list)][1] += temp_console_x_border
-                    temp_line_areas[temp_line_areas.index(sub_list)][2] += temp_console_y_border
-                    temp_line_areas[temp_line_areas.index(sub_list)][3] += temp_console_y_border
+            for sub_list in temp_line_areas:
+                temp_line_areas[temp_line_areas.index(sub_list)][0] += temp_console_x_border
+                temp_line_areas[temp_line_areas.index(sub_list)][1] += temp_console_x_border
+                temp_line_areas[temp_line_areas.index(sub_list)][2] += temp_console_y_border
+                temp_line_areas[temp_line_areas.index(sub_list)][3] += temp_console_y_border
 
             return temp_line_areas
 
@@ -506,38 +512,42 @@ class Console:
                             return False
 
                 else:
-                    for x_y in custom_area:
+                    for x_y in temp_line_areas:
 
                         # Checking if the mouse input is within the desired area
 
-                        if (x in range(custom_area[custom_area.index(x_y)][0],
-                                       custom_area[custom_area.index(x_y)][1])
+                        if (x in range(temp_line_areas[temp_line_areas.index(x_y)][0],
+                                       temp_line_areas[temp_line_areas.index(x_y)][1])
                             and
-                            y in range(custom_area[custom_area.index(x_y)][2],
-                                       custom_area[custom_area.index(x_y)][3])):
+                            y in range(temp_line_areas[temp_line_areas.index(x_y)][2],
+                                       temp_line_areas[temp_line_areas.index(x_y)][3])):
+
+                            debug_logger.debug("mouse x{}, y{} in range {}".format(x, y, temp_line_areas))
 
                             global case_custom_area
-                            case_custom_area = cases[custom_area.index(x_y)]
+                            case_custom_area = cases[temp_line_areas.index(x_y)]
                             return False
+                        else:
+                            debug_logger.debug("mouse x{}, y{} not in range {}".format(x, y, temp_line_areas))
 
         # Checks for mouse clicks, if there are any it calls on_click
         with pynput.mouse.Listener(on_click=on_click) as listener:
             listener.join()
 
-        try:
-            _ = case
-            del _
-        except NameError:
-            print("It seems that you aren't running this game through a console. Please do")
-            input()
-            raise SystemExit
-        finally:
-            if case is None:
+        if len(custom_area) == 0:
+            try:
+                _ = case
+                del _
+            except NameError:
                 print("It seems that you aren't running this game through a console. Please do")
                 input()
                 raise SystemExit
+            finally:
+                if case is None:
+                    print("It seems that you aren't running this game through a console. Please do")
+                    input()
+                    raise SystemExit
 
-        if len(custom_area) == 0:
             if case == "*back" or case == "back":
                 # If the input is back, return None
                 return None
@@ -1061,6 +1071,11 @@ class GameMaster:
 
     game_state = {}
     statistics = {}
+
+    missing_audio = []
+
+    current_process_handle = None
+    pid = int
     y_to_console = 0
     x_to_console = 0
     font_size_x = 0
@@ -2746,13 +2761,13 @@ def combat(enemy, location):
                         for key in GameMaster.settings:
                             if key == "ForceV2":
                                 if GameMaster.settings[key] is None:
-                                    skip = True
+                                    display_key = False
                                 else:
-                                    skip = False
+                                    display_key = True
                             else:
-                                skip = False
+                                display_key = True
 
-                            if not skip:
+                            if display_key:
                                 setting_list.append("{}: {}".format(key, '{}On{}'.format(colorama.Fore.GREEN,
                                                                                          colorama.Style.RESET_ALL)
                                                     if GameMaster.settings[key] else
@@ -2919,69 +2934,36 @@ def combat(enemy, location):
 
 
 def on_start():
-    try:
-        registry_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Console\\%SystemRoot%_py.exe", 0,
-                                      winreg.KEY_READ)
-        quickedit_value, _ = winreg.QueryValueEx(registry_key, "Quickedit")
-        winreg.CloseKey(registry_key)
-    except WindowsError:
-        try:
-            registry_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Console\\%SystemRoot%_py.exe", 0,
-                                          winreg.KEY_READ)
-            quickedit_value, _ = winreg.QueryValueEx(registry_key, "Quickedit")
-            winreg.CloseKey(registry_key)
-        except WindowsError:
-            quickedit_value = False
-
-    # Defining the path of the game
+    # Defining this projects path
     project_path = os.path.dirname(sys.argv[0])
 
-    if quickedit_value:
-        os.system("start {}\\Scripts\\Restart_game.pyw".format(project_path))
-
-    # Running a setup script
-    os.system("python {}\\Scripts\\Setup.py".format(project_path))
-
-    if quickedit_value:
-        raise SystemExit
-
-    # Setting the game's name
+    # Getting the pid to the current process and setting the name of the game
+    GameMaster.pid = os.getpid()
     GameMaster.game_name = "Temporary placeholder for a game name, please change later"
 
-    # Changing the game's title(on the console)
-    # Both python 2 and 3 support
-    if sys.version_info > (3, 0):
-        ctypes.windll.kernel32.SetConsoleTitleW(GameMaster.game_name)
-    else:
-        ctypes.windll.kernel32.SetConsoleTitleA(GameMaster.game_name)
+    Console.size_reset()
 
-    # Setting up the game settings with json
-    loaded: bool = False
-    if os.stat("{}\\Saves\\Config\\Config.json".format(project_path)).st_size != 0:
-        with open("{}\\Saves\\Config\\Config.json".format(project_path)) as f:
-            try:
-                GameMaster.settings = json.load(f)
-                loaded = True
-            except json.JSONDecodeError:
-                error_logger.error("Json_Decode_Error")
+    try:
+        os.mkdir("{}\\Saves".format(project_path))
+    except FileExistsError:
+        pass
 
-    if not loaded:
-        with open("{}\\Saves\\Config\\Config.json".format(project_path), 'r') as f:
-            test_content = f.readlines()
-            if test_content[0] == "\n" and len(test_content) == 1:
-                GameMaster.settings = json.load(f)
-            else:
-                settings = '''
-                {
-                    "nerd mode": false,
-                    "Quickedit": null,
-                    "ForceV2": null
-                }
-                '''
-                GameMaster.settings = json.loads(settings)
+    try:
+        os.mkdir("{}\\Logs".format(project_path))
+    except FileExistsError:
+        pass
 
-    # Setting up some loggers
-    # Info logger
+    try:
+        os.mkdir("{}\\Saves\\Player saves".format(project_path))
+    except FileExistsError:
+        pass
+
+    try:
+        os.mkdir("{}\\Saves\\Config".format(project_path))
+    except FileExistsError:
+        pass
+
+    # A function for creating loggers
     def setup_logger(name, file, level=logging.WARNING):
         # Function to easily create loggers
 
@@ -3004,6 +2986,229 @@ def on_start():
     # Debug logger
     debug_log = setup_logger('Debug Logging', "{}\\Logs\\debug_log.log".format(project_path), level=logging.DEBUG)
 
+    # A json structure to be filled with info about things
+    setup = '''
+    {
+        "os": null,
+        "font_size_x": null,
+        "font_size_y": null
+    }
+    '''
+    setup = json.loads(setup)
+
+    # The versions i am supporting
+    # This is basically information about the fallback size of the console, used in interactive choices
+    accepted_operating_systems = ('Windows-8', 'Windows-10', 'Windows-8.1')
+
+    supported_os = True
+    os_version = platform.platform(terse=True)
+    if os_version in accepted_operating_systems:
+        setup['os'] = os_version
+    else:
+        setup['os'] = os_version
+        supported_os = False
+        error_log.error("Unsupported os: {}. Falling back to windows 10 settings".format(os))
+
+    # Getting the console's font size
+    # Done using the win32 api
+    ctypes.windll.kernel32.SetConsoleTitleW(GameMaster.game_name)
+
+    error = ctypes.windll.kernel32.GetLastError()
+    if error:
+        hwnd = win32gui.GetForegroundWindow()
+        win32gui.SetWindowText(hwnd, GameMaster.game_name)
+
+    class COORD(ctypes.Structure):
+        _fields_ = [("X", ctypes.c_short), ("Y", ctypes.c_short)]
+
+    # noinspection PyPep8Naming
+    class CONSOLE_FONT_INFO(ctypes.Structure):
+        _fields_ = [("nFont", ctypes.c_uint32),
+                    ("dwFontSize", COORD)]
+
+    font = CONSOLE_FONT_INFO()
+
+    # noinspection PyPep8Naming
+    STD_OUTPUT_HANDLE = -11
+    handle = ctypes.windll.kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
+    ctypes.windll.kernel32.GetCurrentConsoleFont(
+        handle,
+        ctypes.c_long(False),
+        ctypes.pointer(font))
+
+    setup['font_size_x'] = font.dwFontSize.X
+    setup['font_size_y'] = font.dwFontSize.Y
+
+    if font.dwFontSize.X == 0 and font.dwFontSize.Y == 0:
+        error_log.error("Get font size error: msdn error {}".format(ctypes.windll.kernel32.GetLastError()))
+
+    # Asserting that all audio files exist
+    audio_path = "{}\\Audio\\".format(project_path)
+    audio_files = ("abc_123_a.ogg",)
+    missing_audio_files = []
+    for audio_name in audio_files:
+        if not os.path.isfile(audio_path + audio_name):
+            GameMaster.missing_audio.append(audio_name)
+            missing_audio_files.append(audio_path)
+
+    if not len(missing_audio_files) == 0:
+        missing_files_str = ", ".join(missing_audio_files)
+        missing_files_str = "Missing auido:" + missing_files_str
+        error_log.error(missing_files_str)
+
+    # We only want to meddle with the registry if we know what we are dealing with
+    if supported_os:
+        # Reading the user's initial values set for the console in case they want to reverse it later
+        py_exe_installed = False
+        try:
+            registry_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Console\\%SystemRoot%_py.exe", 0,
+                                          winreg.KEY_READ)
+            quickedit_py_exe, __ = winreg.QueryValueEx(registry_key, "Quickedit")
+            winreg.CloseKey(registry_key)
+            py_exe_installed = True
+        except WindowsError:
+            pass
+        finally:
+            try:
+                registry_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Console", 0,
+                                              winreg.KEY_READ)
+                quickedit_cmd, __ = winreg.QueryValueEx(registry_key, "Quickedit")
+                winreg.CloseKey(registry_key)
+            except WindowsError:
+                quickedit_cmd = 0
+
+        try:
+            registry_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Console", 0,
+                                          winreg.KEY_READ)
+            legacy, __ = winreg.QueryValueEx(registry_key, "ForceV2")
+            winreg.CloseKey(registry_key)
+        except WindowsError:
+            legacy = None
+
+        # Setting registry values of the console for an optimized experience
+        # If the option to enable legacy console exists, we want do that
+        if legacy is not None:
+            try:
+                path = "Console"
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_WRITE)
+                winreg.SetValueEx(key, "ForceV2", 0, winreg.REG_DWORD, 0)
+                winreg.CloseKey(key)
+            except WindowsError:
+                pass
+
+        # Disabling quickedit
+        if py_exe_installed:
+            try:
+                path = "Console\\%SystemRoot%_py.exe"
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_WRITE)
+                winreg.SetValueEx(key, "Quickedit", 0, winreg.REG_DWORD, 0)
+                winreg.CloseKey(key)
+            except WindowsError:
+                pass
+            finally:
+                path = "Console"
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_WRITE)
+                winreg.SetValueEx(key, "Quickedit", 0, winreg.REG_DWORD, 0)
+                winreg.CloseKey(key)
+
+    else:
+        quickedit_cmd = None
+        quickedit_py_exe = None
+        legacy = None
+
+    try:
+        # noinspection PyUnboundLocalVariable
+        temp = quickedit_py_exe
+        del temp
+    except NameError:
+        quickedit_py_exe = 0
+
+    if quickedit_cmd or quickedit_py_exe:
+        os.system("start {}\\Scripts\\Restart_game.pyw".format(project_path))
+
+    if quickedit_cmd or quickedit_py_exe:
+        raise SystemExit
+
+    # Dumping the json settings
+    try:
+        with open("{}\\Saves\\Config\\Config.json".format(project_path), 'x') as _:
+            pass
+    except FileExistsError:
+        pass
+
+    if os.stat("{}\\Saves\\Config\\Config.json".format(project_path)).st_size == 0:
+        with open("{}\\Saves\\Config\\Config.json".format(project_path), 'w') as f:
+            settings = '''
+            {
+                "nerd mode": false,
+                "Quickedit": null,
+                "ForceV2": null
+            }
+            '''
+            settings = json.loads(settings)
+            settings['Quickedit'] = quickedit_cmd
+            settings['ForceV2'] = legacy
+            json.dump(settings, f)
+            GameMaster.settings = settings
+
+    else:
+        with open("{}\\Saves\\Config\\Config.json".format(project_path), 'r') as f_1:
+            test_content = f_1.readlines()
+            if test_content[0] == "\n" and len(test_content) == 1:
+                with open("{}\\Saves\\Config\\Config.json".format(project_path), 'w') as f_2:
+                    settings = '''
+                            {
+                                "nerd mode": false,
+                                "Quickedit": null,
+                                "ForceV2": null
+                            }
+                            '''
+                    settings = json.loads(settings)
+                    settings['Quickedit'] = quickedit_cmd
+                    settings['ForceV2'] = legacy
+                    json.dump(settings, f_2)
+                    GameMaster.settings = settings
+
+    # Settings up some info depending on the windows version used
+    with open("{}\\Saves\\Config\\Config.json".format(project_path)) as f:
+        try:
+            GameMaster.settings = json.load(f)
+        except json.JSONDecodeError as json_error:
+            error_log.error("JsonDecodeError: {}".format(json_error))
+            settings = '''
+                    {
+                        "nerd mode": false,
+                        "Quickedit": null,
+                        "ForceV2": null
+                    }
+                    '''
+            settings = json.loads(settings)
+            settings['Quickedit'] = quickedit_cmd
+            settings['ForceV2'] = legacy
+            GameMaster.settings = settings
+
+    if len(GameMaster.settings) == 0:
+        settings = '''
+                {
+                    "nerd mode": false,
+                    "Quickedit": null,
+                    "ForceV2": null
+                }
+                '''
+        settings = json.loads(settings)
+        settings['Quickedit'] = quickedit_cmd
+        settings['ForceV2'] = legacy
+        GameMaster.settings = settings
+
+    try:
+        with open("{}\\Saves\\Config\\Setup.json".format(project_path), 'x') as _:
+            pass
+    except FileExistsError:
+        pass
+
+    with open("{}\\Saves\\Config\\Setup.json".format(project_path), 'w') as f:
+        json.dump(setup, f)
+
     # Settings up some info depending on the windows version used
     with open("{}\\Saves\\Config\\Setup.json".format(project_path)) as f:
         try:
@@ -3012,7 +3217,7 @@ def on_start():
         except json.JSONDecodeError as json_error:
             error_log.error("JsonDecodeError: {}".format(json_error))
             os_version = "Windows-10"
-            config = {'font_size_x': 0, 'font_size_y': 0}
+            config = setup
     if len(sys.argv) != 1:
         if sys.argv[1] == "debug":
             GameMaster.font_size_x = 7 if not config['font_size_x'] else config['font_size_x']
@@ -3072,5 +3277,9 @@ if __name__ == '__main__':
     player.apply_status(Statuses.apply_bleed, 10)
     player.apply_status("crit", 9, 100)
     player.inventory.add_item(Gold, 10)
-    Console.size_reset()
+    print(GameMaster.settings)
+    input()
+    #e = Console.interactive_choice(['Hai', '', '', 'tai'], '', custom_area=((0, 4, 0, 1), (0, 0, 0, 0), (0, 0, 0, 0), (0, 4, 2, 3)))
+    #print(e)
+    #input()
     combat(hen, "swamp")
