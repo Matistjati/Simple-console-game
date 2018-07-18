@@ -1,8 +1,8 @@
-# Better drop system
+# todo Better drop system
 # Return values:
 # 0: Failed for something like an error in internal structure
 # 1: Success (even if nothing changed, it may be considered success)
-# 2: Failed due to some sort of failsafe
+# 2: "Failed" due to some sort of intended reason
 
 import random
 import time
@@ -14,6 +14,7 @@ import json
 import subprocess
 import winreg
 import platform
+from enum import Enum
 
 # Importing modules not in standard library
 try:
@@ -200,7 +201,8 @@ class Console:
                 elif status == Statuses.apply_bleed:
                     player_top_resource_bar += ColoredString("{}{}".format(colorama.Fore.LIGHTRED_EX, chr(191)),
                                                              colored_chars=len(colorama.Fore.LIGHTRED_EX))
-                elif status in GameMaster.stats:
+                # Checking if the effect is a stat boost
+                elif status in [i.value for i in Stats]:
                     if player.Statuses[status]['amount'] >= 0:
                         player_top_resource_bar += ColoredString("{}^".format(colorama.Fore.LIGHTBLUE_EX),
                                                                  colored_chars=len(colorama.Fore.LIGHTBLUE_EX))
@@ -248,7 +250,8 @@ class Console:
                 elif status == Statuses.apply_bleed:
                     enemy_top_resource_bar += "{}{}{}".format(colorama.Fore.LIGHTRED_EX, chr(191),
                                                               colorama.Style.RESET_ALL)
-                elif status in GameMaster.stats:
+                # Checking if the effect is a stat boost
+                elif status in [i.value for i in Stats]:
                     if enemy.Statuses[status]['amount'] >= 0:
                         enemy_top_resource_bar += "{}^{}".format(colorama.Fore.LIGHTBLUE_EX, colorama.Style.RESET_ALL)
                     else:
@@ -394,9 +397,9 @@ class Console:
 
         # Console borders need to be accounted for
         console_x_border: int = GameMaster.x_to_console  # pixels
-        console_y_border = GameMaster.y_to_console  # pixels
-        font_size_x = GameMaster.font_size_x  # pixels
-        font_size_y = GameMaster.font_size_y  # pixels
+        console_y_border: int = GameMaster.y_to_console  # pixels
+        font_size_x: int = GameMaster.font_size_x  # pixels
+        font_size_y: int = GameMaster.font_size_y  # pixels
 
         # Some lines are not clickable
         uninteractive_lines = head_string.count("\n") + 1
@@ -408,15 +411,19 @@ class Console:
         # If you're bug hunting a displaced turn meter, this is the root of the problem
         # The split method returns a string, therefore removing the coloredstring's custom len
         # The easiest way to solve this is to never have two colored strings as head strings
-        if head_string.count("\n") != 0:
-            head_string_list = head_string.split("\n")
-            temp_cases = head_string_list + cases
-        else:
-            temp_cases = cases.copy()
-            temp_cases.insert(0, head_string)
+        if len(custom_area) == 0:
+            if head_string.count("\n") != 0:
+                head_string_list = head_string.split("\n")
+                temp_cases = head_string_list + cases
+            else:
+                temp_cases = cases.copy()
+                temp_cases.insert(0, head_string)
 
         if len(custom_area) == 0:
+            # noinspection PyUnboundLocalVariable
             temp_cases = ["*" + case for case in temp_cases]
+        else:
+            temp_cases = cases.copy()
 
         # Printing everything
         Console.print_with_layout(extra_text=temp_cases, battle=battle)
@@ -450,10 +457,10 @@ class Console:
                 line_areas[line_areas.index(sublist)][1] += console_x_border
 
                 line_areas[line_areas.index(sublist)][2] *= font_size_y
-                line_areas[line_areas.index(sublist)][2] += console_x_border
+                line_areas[line_areas.index(sublist)][2] += console_y_border
 
                 line_areas[line_areas.index(sublist)][3] *= font_size_y
-                line_areas[line_areas.index(sublist)][3] += console_x_border
+                line_areas[line_areas.index(sublist)][3] += console_y_border
 
         def update_area():
             x_y_window = []
@@ -501,10 +508,10 @@ class Console:
                 if len(custom_area) == 0:
                     for x_y in temp_line_areas:
                         # Checking if the mouse input is within the desired area
-                        if x in range(temp_line_areas[temp_line_areas.index(x_y)][0],
-                                      temp_line_areas[temp_line_areas.index(x_y)][1]) and \
-                                y in range(temp_line_areas[temp_line_areas.index(x_y)][2],
-                                           temp_line_areas[temp_line_areas.index(x_y)][3]):
+                        if (x in range(temp_line_areas[temp_line_areas.index(x_y)][0],
+                                       temp_line_areas[temp_line_areas.index(x_y)][1]) and
+                            y in range(temp_line_areas[temp_line_areas.index(x_y)][2],
+                                       temp_line_areas[temp_line_areas.index(x_y)][3])):
                             # For the listener to exit, we need to return false
                             # Therefore, in order to return other values, we use a global variable
                             nonlocal case
@@ -515,20 +522,15 @@ class Console:
                     for x_y in temp_line_areas:
 
                         # Checking if the mouse input is within the desired area
-
                         if (x in range(temp_line_areas[temp_line_areas.index(x_y)][0],
-                                       temp_line_areas[temp_line_areas.index(x_y)][1])
-                            and
+                                       temp_line_areas[temp_line_areas.index(x_y)][1])and
                             y in range(temp_line_areas[temp_line_areas.index(x_y)][2],
                                        temp_line_areas[temp_line_areas.index(x_y)][3])):
 
-                            debug_logger.debug("mouse x{}, y{} in range {}".format(x, y, temp_line_areas))
-
-                            global case_custom_area
-                            case_custom_area = cases[temp_line_areas.index(x_y)]
-                            return False
-                        else:
-                            debug_logger.debug("mouse x{}, y{} not in range {}".format(x, y, temp_line_areas))
+                            if cases[temp_line_areas.index(x_y)] != "":
+                                global case_custom_area
+                                case_custom_area = cases[temp_line_areas.index(x_y)]
+                                return False
 
         # Checks for mouse clicks, if there are any it calls on_click
         with pynput.mouse.Listener(on_click=on_click) as listener:
@@ -1025,32 +1027,64 @@ Fist = Weapon('Fist', 0, 0, 'weapon', 3, 'A plain old fist', 75, 1, 2, 3)
 WoodenSword = Weapon('Wooden sword', 5, 10, 'weapon', 4, 'A plain old sword out of sturdy oak', 20, 1, 4, 4,)
 
 
+# An enumeration of all the game stats
+class Stats(Enum):
+    crit = 'crit'
+    charisma = 'charisma'
+    speed = 'speed'
+    awareness = 'awareness'
+    strength = 'strength'
+    intelligence = 'intelligence'
+    dodge = 'dodge'
+    prot = 'prot'
+    hp_regen = 'hp_regen'
+    mp_regen = 'mp_regen'
+    stamina_regen = 'stamina_regen'
+
+
 class GameMaster:
-    # This is the class where we store data which do not make sense to contain in the player class
-    last_interactive_choice_call = {'cases': [], 'head_string': '', 'battle': False, 'back_want': False}
+    # Runtime computations
 
-    settings = {}
-
-    stats = ('crit', 'charisma', 'speed', 'awareness', 'strength', 'intelligence',
-             'dodge', 'prot', 'hp_regen', 'mp_regen', 'stamina_regen')
+    # Tuples that can be iterated through to check for various things
     percent_stats = ('crit', 'dodge', 'prot')
-
     Bare_set = (Bare.Head, Bare.Chest, Bare.Legs, Fist)
     no_s_at_end_exceptions = ('Gold',)
-    game_name = "Please select a game name"
-    last_damage_player = ""
     vowels = ("a", "o", "u", "e", "i", "A", "O", "U", "E", "I")
+
+    # The game settings
+    # Should contain nerd mode, quickedit and forcev2
+    settings = {}
+    # The name of the game, used for setting the title of the process and getting a handle to it
+    game_name = "Please select a game name"
+    # Used to ensure that an audio file exists when trying to play it
+    missing_audio = []
+    # Some info about the console
+    y_to_console = 0
+    x_to_console = 0
+    font_size_x = 0
+    font_size_y = 0
+    # Used at the death screen
+    last_damage_player = ""
+    # Counter for displaying the current turn during combat
+    # It gets incremented and reset from the combat function
+    turn = 1
+    # A dict containing the last call to interactive choice
+    # This is used in case we need to update the action log
+    last_interactive_choice_call = {'cases': [], 'head_string': '', 'battle': False, 'back_want': False}
+    # A list containing actions made by the player and the enemy to be displayed
+    # This should never be appended to directly
     action_log = ['               ', '               ', '               ', '               ', '               ',
                   '               ']
 
-    turn = 1
-
+    # A method for appending to the action log
     def extend_action_log(self, new_action):
+        # Ensuring that the message will never be too long
         if len(new_action) > 56:
             self.action_log.append('Message too long. Show the developer your error log')
             error_logger.error("Message longer than 56 chars found at action_log: {}. len: {}".format(new_action,
                                                                                                       len(new_action)))
         else:
+            #  Calling interactive_choice to ensure a smoother experience
             self.action_log.append(new_action)
             if self.last_interactive_choice_call['head_string'] != "":
                 temp_cases = GameMaster.last_interactive_choice_call['cases'].copy()
@@ -1068,18 +1102,6 @@ class GameMaster:
                 temp_cases = ["*" + case for case in temp_cases]
                 Console.print_with_layout(extra_text=temp_cases, battle=self.last_interactive_choice_call['battle'])
                 time.sleep(1)
-
-    game_state = {}
-    statistics = {}
-
-    missing_audio = []
-
-    current_process_handle = None
-    pid = int
-    y_to_console = 0
-    x_to_console = 0
-    font_size_x = 0
-    font_size_y = 0
 
 
 class Character:
@@ -1118,6 +1140,10 @@ class Character:
 
     # noinspection PyUnresolvedReferences
     def calculate_stat_change(self, stat, stat_value):
+        if stat in [i.value for i in Stats]:
+            error_logger.error("Unknown stat type at calculate_stat_change: {}".format(stat))
+            return stat_value
+
         for status in self.Statuses:
             try:
                 if status == stat:
@@ -1495,7 +1521,7 @@ class Character:
                         self.items[item] += amount
                 else:
                     print("Your bag can't fit this item")
-                    return "bag_full"
+                    return 2
             else:
                 self.items[item] = amount
 
@@ -1684,7 +1710,7 @@ class Character:
                     self.unlocked_Moves[new_move] = {}
                     self.unlocked_Moves[new_move]['type'] = self.supported_moves[new_move]['type']
                 else:
-                    return "already_unlocked"
+                    return 2
             else:
                 error_logger.error("unknown move: {} at add_move".format(new_move.__name__))
 
@@ -1698,7 +1724,7 @@ class Character:
                 self.parent.current_mp -= 5
             amount_healed = int((self.parent.current_hp / 5) + (self.parent.max_hp / 10))
             amount_healed = int(amount_healed * ((self.parent.calculate_stat_change(
-                                                  'intelligence', self.parent.intelligence) / 100) + 1))
+                                                  Stats.intelligence, self.parent.intelligence) / 100) + 1))
             self.parent.current_hp += amount_healed
             if self.parent.current_hp >= self.parent.max_hp:
                 self.parent.current_hp = self.parent.max_hp
@@ -1734,7 +1760,7 @@ class Character:
                 self.parent.current_mp -= 7
             amount_healed = int((self.parent.current_hp / 3) + (self.parent.max_hp / 4))
             amount_healed = int(amount_healed * ((self.parent.calculate_stat_change(
-                                                  'intelligence', self.parent.intelligence) / 100) + 1))
+                                                  Stats.intelligence, self.parent.intelligence) / 100) + 1))
 
             self.parent.current_hp += amount_healed
             if self.parent.current_hp >= self.parent.max_hp:
@@ -1787,28 +1813,28 @@ class Character:
 
     def stat_level(self, stat, custom_stat=None):
         if stat == "crit":
-            stat = self.calculate_stat_change('crit', self.crit)
+            stat = self.calculate_stat_change(Stats.crit, self.crit)
             stat_levels = self.crit_levels
 
         elif stat == "awareness":
-            stat = self.calculate_stat_change('awareness', self.awareness)
+            stat = self.calculate_stat_change(Stats.awareness, self.awareness)
             stat_levels = self.awareness_levels
 
         elif stat == "speed":
-            stat = self.calculate_stat_change('speed', self.speed)
+            stat = self.calculate_stat_change(Stats.speed, self.speed)
             stat_levels = self.speed_levels
 
         elif stat == "dodge":
-            stat = self.calculate_stat_change('dodge', self.dodge)
+            stat = self.calculate_stat_change(Stats.dodge, self.dodge)
             stat_levels = self.dodge_levels
 
         elif stat == "prot":
-            stat = self.calculate_stat_change('prot', self.prot)
+            stat = self.calculate_stat_change(Stats.prot, self.prot)
             stat_levels = self.prot_levels
 
         else:
             error_logger.error("Unknown stat: {}".format(stat))
-            stat_levels = {}
+            stat_levels = {0: 'Something failed, please send your logs to the dev'}
             stat = 0
 
         if custom_stat is None:
@@ -1933,17 +1959,17 @@ class Character:
             current_states = ""
 
         # Applying buffs and debuffs to the values
-        temp_speed = self.calculate_stat_change('speed', self.speed)
-        temp_awareness = self.calculate_stat_change('awareness', self.awareness)
-        temp_strength = self.calculate_stat_change('strength', self.strength)
-        temp_intelligence = self.calculate_stat_change('intelligence', self.intelligence)
-        temp_dodge = self.calculate_stat_change('dodge', self.dodge)
-        temp_prot = self.calculate_stat_change('prot', self.prot)
-        temp_crit = self.calculate_stat_change('crit', self.crit)
-        temp_hp_regen = self.calculate_stat_change("hp_regen", self.hp_regen)
-        temp_mp_regen = self.calculate_stat_change("mp_regen", self.mp_regen)
-        temp_stamina_regen = self.calculate_stat_change("stamina_regen", self.stamina_regen)
-        temp_charisma = self.calculate_stat_change("charisma", self.charisma)
+        temp_speed = self.calculate_stat_change(Stats.speed, self.speed)
+        temp_awareness = self.calculate_stat_change(Stats.awareness, self.awareness)
+        temp_strength = self.calculate_stat_change(Stats.strength, self.strength)
+        temp_intelligence = self.calculate_stat_change(Stats.intelligence, self.intelligence)
+        temp_dodge = self.calculate_stat_change(Stats.dodge, self.dodge)
+        temp_prot = self.calculate_stat_change(Stats.prot, self.prot)
+        temp_crit = self.calculate_stat_change(Stats.crit, self.crit)
+        temp_hp_regen = self.calculate_stat_change(Stats.hp_regen, self.hp_regen)
+        temp_mp_regen = self.calculate_stat_change(Stats.mp_regen, self.mp_regen)
+        temp_stamina_regen = self.calculate_stat_change(Stats.stamina_regen, self.stamina_regen)
+        temp_charisma = self.calculate_stat_change(Stats.charisma, self.charisma)
 
         # Joining all the string together
         # Different depending on if the target is the player or the enemy
@@ -1972,10 +1998,10 @@ class Character:
                         "{}"
                         .format(self.level, self.xp, self.current_hp, self.max_hp, self.current_mp, self.max_mp,
                                 self.current_stamina, self.max_stamina, self.hp_regen, self.mp_regen,
-                                self.stamina_regen, temp_strength, temp_intelligence, self.stat_level('crit'),
-                                self.stat_level('awareness'),
-                                self.stat_level('speed'), self.stat_level('prot'),
-                                self.stat_level('dodge'), current_states))
+                                self.stamina_regen, temp_strength, temp_intelligence, self.stat_level(Stats.crit),
+                                self.stat_level(Stats.awareness),
+                                self.stat_level(Stats.speed), self.stat_level(Stats.prot),
+                                self.stat_level(Stats.dodge), current_states))
 
         else:
             if GameMaster.settings['nerd mode']:
@@ -2007,9 +2033,9 @@ class Character:
                          self.max_mp, self.current_stamina, self.max_stamina, gender_pronoun_2.capitalize(),
                          self.hp_regen, self.mp_regen, self.stamina_regen, gender_pronoun_1,
                          gender_pronoun_1.capitalize(), temp_strength, gender_pronoun_1, temp_intelligence,
-                         gender_pronoun_1.capitalize(), self.stat_level('crit'),
-                         gender_pronoun_2.capitalize(), self.stat_level('speed'), self.stat_level('awareness'),
-                         gender_pronoun_2.capitalize(), self.stat_level('prot'), self.stat_level('dodge'),
+                         gender_pronoun_1.capitalize(), self.stat_level(Stats.crit),
+                         gender_pronoun_2.capitalize(), self.stat_level(Stats.speed), self.stat_level(Stats.awareness),
+                         gender_pronoun_2.capitalize(), self.stat_level(Stats.prot), self.stat_level(Stats.dodge),
                          current_states))
 
 
@@ -2059,7 +2085,8 @@ class Player(Character):
 class Enemy(Character):
     def alive_check(self):
         if self.current_hp <= 0:
-            player
+            pass
+        # todo call to player xp add and loot drop
 
 
 class Orc(Enemy):
@@ -2370,7 +2397,7 @@ def main_menu():
         time.sleep(2)
 
 
-def combat(enemy, location):
+def combat(enemy):  # todo location
     # Sets both combatant's current enemy to the others
     # This is used in a couple of places for example to determine the loot offered to the player
     player.current_enemy, enemy.current_enemy = enemy, player
@@ -2885,8 +2912,8 @@ def combat(enemy, location):
             first_turn = False
         else:
             GameMaster.turn += 1
-            temp_player_speed = player.calculate_stat_change('speed', player.speed)
-            temp_enemy_speed = enemy.calculate_stat_change('speed', enemy.speed)
+            temp_player_speed = player.calculate_stat_change(Stats.speed, player.speed)
+            temp_enemy_speed = enemy.calculate_stat_change(Stats.speed, enemy.speed)
 
             if random.randint(random.randint(int((temp_player_speed / 3)), (temp_player_speed - 10)),
                               temp_player_speed * 2) >= \
@@ -2937,8 +2964,7 @@ def on_start():
     # Defining this projects path
     project_path = os.path.dirname(sys.argv[0])
 
-    # Getting the pid to the current process and setting the name of the game
-    GameMaster.pid = os.getpid()
+    # Setting the name of the game
     GameMaster.game_name = "Temporary placeholder for a game name, please change later"
 
     Console.size_reset()
@@ -3218,6 +3244,8 @@ def on_start():
             error_log.error("JsonDecodeError: {}".format(json_error))
             os_version = "Windows-10"
             config = setup
+
+    # Setting information about the font size and the width of the console border
     if len(sys.argv) != 1:
         if sys.argv[1] == "debug":
             GameMaster.font_size_x = 7 if not config['font_size_x'] else config['font_size_x']
@@ -3242,11 +3270,11 @@ def on_start():
             # If the user is using an os i'm not yet supporting
             error_log.warning("Unsupported os:{}".format(os_version))
 
-        # Will default to windows 10 settings
-        GameMaster.font_size_x = 8
-        GameMaster.font_size_y = 16
-        GameMaster.x_to_console = 1
-        GameMaster.y_to_console = 30
+            # Will default to windows 10 settings
+            GameMaster.font_size_x = 8
+            GameMaster.font_size_y = 16
+            GameMaster.x_to_console = 1
+            GameMaster.y_to_console = 30
 
     return error_log, info_log, debug_log
 
@@ -3277,9 +3305,4 @@ if __name__ == '__main__':
     player.apply_status(Statuses.apply_bleed, 10)
     player.apply_status("crit", 9, 100)
     player.inventory.add_item(Gold, 10)
-    print(GameMaster.settings)
-    input()
-    #e = Console.interactive_choice(['Hai', '', '', 'tai'], '', custom_area=((0, 4, 0, 1), (0, 0, 0, 0), (0, 0, 0, 0), (0, 4, 2, 3)))
-    #print(e)
-    #input()
-    combat(hen, "swamp")
+    combat(hen)
